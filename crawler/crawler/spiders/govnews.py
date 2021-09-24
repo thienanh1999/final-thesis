@@ -2,7 +2,7 @@ import scrapy
 
 
 class MohSpider(scrapy.Spider):
-    name = 'moh'
+    name = 'govnews'
     allowed_domains = ['ncov.moh.gov.vn']
     start_urls = ['https://ncov.moh.gov.vn/vi/web/guest/tin-tuc']
     headers = {

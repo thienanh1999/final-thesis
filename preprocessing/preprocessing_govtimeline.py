@@ -2,7 +2,6 @@ import re
 import json
 from collections import defaultdict
 
-
 json_file = open('./../crawler/crawled_data/govtimeline.json', 'r')
 articles = json.load(json_file)
 sentence_splitter = r"\.(?!\d)(?! Hồ Chí Minh)|\:"
@@ -10,7 +9,6 @@ table_splitter = r"\,|\ trong|\ tại"
 import_cases_count_regex = r'(\d+)[^\d]+ca nhập cảnh'
 internal_cases_count_regex = r'(\d+)[^\d]+ca ghi nhận trong nước'
 community_cases_count_regex = r'(\d+)[^\d]+ca trong cộng đồng'
-
 
 article_dictionaries = []
 for article in articles:
@@ -21,7 +19,6 @@ for article in articles:
     article_dict['time'] = article['time']
     article_dict['title'] = article['summary']
     article_dict['order'] = []
-
 
     sentence_idx = 0
     for sentence in sentences:
@@ -65,8 +62,7 @@ for article in articles:
                     table_header_dict_1 = defaultdict()
                     table_header_dict_1['id'] = 'cell_0_{}_1'.format(
                         province_idx)
-                    table_header_dict_1['value'] = int(
-                        prv_cnt.replace('.', ''))
+                    table_header_dict_1['value'] = prv_cnt.replace('.', '')
                     table_header_dict_1['is_header'] = False
                     table_header_dict_1['column_span'] = '1'
                     table_header_dict_1['row_span'] = '1'
@@ -77,12 +73,10 @@ for article in articles:
                         ]
                     )
 
-
         article_dict['order'].append('sentence_{}'.format(sentence_idx))
         article_dict['sentence_{}'.format(sentence_idx)] = sentence.replace(
             '\u00a0', '').strip()
         sentence_idx += 1
-
 
     table_1_count = 0
     if 'THÔNG BÁO VỀ' in article['summary'] and 'CA MẮC MỚI' in article['summary']:
@@ -101,7 +95,7 @@ for article in articles:
             table_header_dict_0_0['row_span'] = '1'
             table_header_dict_1_0 = defaultdict()
             table_header_dict_1_0['id'] = 'cell_0_0_1'
-            table_header_dict_1_0['value'] = int(new_cases_count)
+            table_header_dict_1_0['value'] = new_cases_count
             table_header_dict_1_0['is_header'] = False
             table_header_dict_1_0['column_span'] = '1'
             table_header_dict_1_0['row_span'] = '1'
@@ -131,7 +125,7 @@ for article in articles:
             table_header_dict_0_0['row_span'] = '1'
             table_header_dict_1_0 = defaultdict()
             table_header_dict_1_0['id'] = 'cell_0_{}_1'.format(table_1_count)
-            table_header_dict_1_0['value'] = int(import_cases_counts[0])
+            table_header_dict_1_0['value'] = import_cases_counts[0]
             table_header_dict_1_0['is_header'] = False
             table_header_dict_1_0['column_span'] = '1'
             table_header_dict_1_0['row_span'] = '1'
@@ -156,7 +150,7 @@ for article in articles:
             table_header_dict_0_0['row_span'] = '1'
             table_header_dict_1_0 = defaultdict()
             table_header_dict_1_0['id'] = 'cell_0_{}_1'.format(table_1_count)
-            table_header_dict_1_0['value'] = int(internal_cases_counts[0])
+            table_header_dict_1_0['value'] = internal_cases_counts[0]
             table_header_dict_1_0['is_header'] = False
             table_header_dict_1_0['column_span'] = '1'
             table_header_dict_1_0['row_span'] = '1'
@@ -181,7 +175,7 @@ for article in articles:
             table_header_dict_0_0['row_span'] = '1'
             table_header_dict_1_0 = defaultdict()
             table_header_dict_1_0['id'] = 'cell_0_{}_1'.format(table_1_count)
-            table_header_dict_1_0['value'] = int(community_cases_counts[0])
+            table_header_dict_1_0['value'] = community_cases_counts[0]
             table_header_dict_1_0['is_header'] = False
             table_header_dict_1_0['column_span'] = '1'
             table_header_dict_1_0['row_span'] = '1'
@@ -193,13 +187,10 @@ for article in articles:
             )
             table_1_count += 1
 
-
     article_dictionaries.append(article_dict)
-
 
 json_file.close()
 
-
-output_json_file = open('preproccessed_govtimeline.json', 'w')
+output_json_file = open('../crawler/crawled_data/preproccessed_govtimeline.json', 'w')
 json.dump(article_dictionaries, output_json_file)
 output_json_file.close()
