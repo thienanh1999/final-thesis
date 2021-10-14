@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  web:
+    container_name: labeling_tool_django
+    build: ./app
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./app/:/usr/src/app/
+    entrypoint: ["./entrypoint.sh"]
+    ports:
+      - 8000:8000
+    env_file:
+      - ./.env.dev
+    depends_on:
+      - db
+  db:
+    container_name: labeling_tool_mysql
+    image: mysql:8.0.21
+    command: mysqld --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: "P@ssword1"
+      MYSQL_DATABASE: "labeling_tool"
+      MYSQL_USER: "labeling_tool_dev"
+      MYSQL_PASSWORD: "P@ssword1"
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    ports:
+      - '3306:3306'
