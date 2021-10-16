@@ -8,8 +8,8 @@ services:
     volumes:
       - ./app/:/usr/src/app/
     entrypoint: ["./entrypoint.sh"]
-    ports:
-      - 8000:8000
+    expose:
+      - 8000
     env_file:
       - ./.env.dev
     depends_on:
@@ -26,3 +26,10 @@ services:
       MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
     ports:
       - '3306:3306'
+  nginx:
+    container_name: labeling_tool_nginx
+    build: ./nginx
+    ports:
+      - 3103:80
+    depends_on:
+      - web
