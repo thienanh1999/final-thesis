@@ -1,0 +1,62 @@
+Table User {
+  id int [pk, increment]
+  full_name varchar(100)
+  email varchar(100) [unique]
+  password varchar(100)
+}
+
+Table Project {
+  id int [pk, increment]
+  project_name varchar(100) [unique]
+  project_owner int
+  description text
+}
+
+Ref: Project.project_owner > User.id
+
+Table ProjectMember {
+  id int [pk, increment]
+  project_id int
+  user_id int
+}
+
+Ref: ProjectMember.project_id > Project.id
+Ref: ProjectMember.user_id > User.id
+
+Table Document {
+  id int [pk, increment]
+  es_id varchar(255)
+  project_id int
+  is_highlighted boolean
+}
+
+Ref: Document.project_id > Project.id
+
+Table Claim {
+  id int [pk, increment]
+  project_id int
+  type tinyint
+  sub_type tinyint
+  content text
+  is_labeled boolean
+  label varchar(20)
+}
+
+Ref: Claim.project_id > Project.id
+
+Table Evidence {
+  id int [pk, increment]
+  claim_id int
+  content text
+  context text
+}
+
+Ref: Evidence.claim_id > Claim.id
+
+Table Annotator {
+  id int [pk, increment]
+  claim_id int
+  annotators text
+}
+
+Ref: Annotator.claim_id > Claim.id

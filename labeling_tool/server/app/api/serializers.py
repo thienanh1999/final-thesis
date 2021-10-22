@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from api.models import User, Project
+from .models import User, Project
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -10,6 +10,12 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class UserLoginSerializer(serializers.Serializer):
+    def update(self, instance, validated_data):
+        pass
+
+    def create(self, validated_data):
+        pass
+
     email = serializers.EmailField(required=True)
     password = serializers.CharField(required=True)
 
@@ -17,4 +23,4 @@ class UserLoginSerializer(serializers.Serializer):
 class ProjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = Project
-        fields = ('name', 'description', 'members', 'owner')
+        fields = ('name', 'description', 'owner')

@@ -7,13 +7,15 @@ from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from api.models import Project
-from api.serializers import UserSerializer, UserLoginSerializer, ProjectSerializer
+from .models import Project
+from .serializers import UserSerializer, UserLoginSerializer, ProjectSerializer
 from django.conf import settings
+
 
 # Create your views here.
 class UserRegisterView(APIView):
-    def post(self, request):
+    @staticmethod
+    def post(request):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
             serializer.validated_data['password'] = make_password(serializer.validated_data['password'])
@@ -32,7 +34,8 @@ class UserRegisterView(APIView):
 
 
 class UserLoginView(APIView):
-    def post(self, request):
+    @staticmethod
+    def post(request):
         serializer = UserLoginSerializer(data=request.data)
         if serializer.is_valid():
             user = authenticate(
@@ -53,12 +56,12 @@ class UserLoginView(APIView):
                     'refresh_expires': int(settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'].total_seconds())
                 }
                 return Response(data, status=status.HTTP_200_OK)
-                
+
             return Response({
                 'message': 'Email or password is incorrect!',
                 'result': 400
             }, status=status.HTTP_400_BAD_REQUEST)
-            
+
         return Response({
             'message': serializer.errors,
             'result': 400
@@ -66,7 +69,8 @@ class UserLoginView(APIView):
 
 
 class UserLogoutView(APIView):
-    def post(self):
+    @staticmethod
+    def post():
         return Response({
             'message': 'Logout successfully!',
             'result': 200
