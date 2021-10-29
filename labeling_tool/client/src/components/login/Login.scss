@@ -1,0 +1,20 @@
+.login-container {
+    .tf-username, .tf-password {
+        margin: 20px auto;
+        display: block;
+        width: 400px;
+        .MuiOutlinedInput-root {
+            width: 400px;
+        }
+    }
+    .sp-register-hyperlink {
+        color: #1b70bc;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+    .bt-login {
+        display: block;
+        margin: 20px auto;
+        width: 200px;
+    }
+}
