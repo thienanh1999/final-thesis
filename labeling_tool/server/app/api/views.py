@@ -150,6 +150,22 @@ class ProjectViewSet(viewsets.ModelViewSet):
             'label': {}
         })
 
+    def list(self, request):
+        user = User.objects.filter(email=request.user).first()
+        if user is None:
+            return Response({
+                'result': 401
+            })
+        project_members = ProjectMember.objects.filter(user=user)
+        projects = []
+        for project_member in project_members:
+            projects.append(project_member.project.to_dict())
+        return Response({
+            'result': 200,
+            'count': len(projects),
+            'projects': projects
+        })
+
 
 class ProjectMemberViewSet(viewsets.ModelViewSet):
     queryset = ProjectMember.objects.all()
@@ -280,3 +296,30 @@ class ClaimViewSet(viewsets.ModelViewSet):
                 'result': 200,
                 'es_id': highlight.es_id
             })
+
+    def create(self, request):
+        user = User.objects.filter(email=request.user).first()
+        if user is None:
+            return Response({
+                'result': 401
+            })
+        check_project_member = is_user_in_project(user.id, request.data['project_id'])
+        if not check_project_member['result']:
+            return Response({
+                'result': 404,
+                'detail': check_project_member['detail']
+            })
+        project = Project.objects.filter(id=request.data['project_id']).first()
+        document = Document.objects.filter(id=request.data['document_id']).first()
+        if document is None:
+            return Response({
+                'result': 404,
+                'detail': 'Document is not exist'
+            })
+        claim1 = Claim.objects.create(project=project, document=document, type=1, content=request.data['claim_1'])
+        claim2 = Claim.objects.create(project=project, document=document, type=2, content=request.data['claim_2'])
+        claim3 = Claim.objects.create(project=project, document=document, type=3, sub_type=request.data['sub_type'],
+                                      content=request.data['claim_3'])
+        return Response({
+            'result': 201
+        })

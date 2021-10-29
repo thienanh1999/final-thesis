@@ -32,6 +32,14 @@ class Project(models.Model):
     description = models.CharField(max_length=1000)
     owner = models.ForeignKey(User, on_delete=models.DO_NOTHING)
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'owner': self.owner.to_dict()
+        }
+
     class Meta:
         db_table = "project"
 
