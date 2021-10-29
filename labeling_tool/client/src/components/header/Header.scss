@@ -1,0 +1,14 @@
+.header-container {
+    display: flex;
+
+    .div-logo-home {
+        height: 60px;
+        align-items: center;
+        width: 200px;
+        background-color: white;
+        .img-home {
+            margin-top: 6px;
+            width: 150px;
+        }
+    }
+}
