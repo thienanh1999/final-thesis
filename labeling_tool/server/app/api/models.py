@@ -19,6 +19,13 @@ class User(AbstractUser):
     def __str__(self):
         return self.email
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'email': self.email,
+            'full_name': self.full_name
+        }
+
 
 class Project(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -48,10 +55,11 @@ class Document(models.Model):
 
 class Claim(models.Model):
     project = models.ForeignKey(Project, on_delete=models.DO_NOTHING)
+    document = models.ForeignKey(Document, on_delete=models.DO_NOTHING)
     type = models.SmallIntegerField()
-    sub_type = models.SmallIntegerField()
+    sub_type = models.SmallIntegerField(default=0)
     content = models.TextField()
-    is_labeled = models.BooleanField()
+    is_labeled = models.BooleanField(default=False)
     label = models.CharField(max_length=20)
 
     class Meta:
