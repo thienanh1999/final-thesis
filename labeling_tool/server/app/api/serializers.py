@@ -57,7 +57,7 @@ class ProjectMemberSerializer:
 class DocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Document
-        fields = ['es_id']
+        fields = ['es_id', 'orders']
 
 
 class ClaimSerializer(serializers.ModelSerializer):
