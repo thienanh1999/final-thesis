@@ -32,6 +32,14 @@ class Project(models.Model):
     description = models.CharField(max_length=1000)
     owner = models.ForeignKey(User, on_delete=models.DO_NOTHING)
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'owner': self.owner.to_dict()
+        }
+
     class Meta:
         db_table = "project"
 
@@ -48,6 +56,7 @@ class Document(models.Model):
     es_id = models.CharField(max_length=255)
     project = models.ForeignKey(Project, on_delete=models.DO_NOTHING)
     is_highlighted = models.BooleanField(default=False)
+    orders = models.TextField()
 
     class Meta:
         db_table = "document"
@@ -60,7 +69,7 @@ class Claim(models.Model):
     sub_type = models.SmallIntegerField(default=0)
     content = models.TextField()
     is_labeled = models.BooleanField(default=False)
-    label = models.CharField(max_length=20)
+    label = models.CharField(max_length=20, default='')
 
     class Meta:
         db_table = "claim"

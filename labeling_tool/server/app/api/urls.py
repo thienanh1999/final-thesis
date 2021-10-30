@@ -1,7 +1,7 @@
 from django.urls import path
 from django.urls.conf import include
 from .views import ProjectViewSet, UserRegisterView, UserLoginView, ProjectMemberViewSet, SearchMemberView, \
-    DocumentViewSet, ClaimViewSet
+    DocumentViewSet, ClaimViewSet, EvidenceViewSet
 from rest_framework import routers
 
 
@@ -10,6 +10,7 @@ router.register(r'project', ProjectViewSet)
 router.register(r'project_member', ProjectMemberViewSet)
 router.register(r'project_document', DocumentViewSet)
 router.register(r'claim_generation', ClaimViewSet)
+router.register(r'claim_verification', EvidenceViewSet)
 urlpatterns = [
     path('auth/register', UserRegisterView.as_view()),
     path('auth/login', UserLoginView.as_view()),

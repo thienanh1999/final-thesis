@@ -139,6 +139,23 @@ class ProjectViewSet(viewsets.ModelViewSet):
         for project_member in project_members:
             member = User.objects.filter(id=project_member.user.id).first().to_dict()
             member_data.append(member)
+        total_document = Document.objects.filter(project=project).count()
+        highlighted_document = Document.objects.filter(project=project, is_highlighted=True).count()
+        claims = Claim.objects.filter(project=project)
+        total_claim = claims.count()
+        claim_type_1 = claims.filter(type=1).count()
+        claim_type_2 = claims.filter(type=2).count()
+        claim_type_3 = claims.filter(type=3).count()
+        sub_type_1 = claims.filter(type=3, sub_type=1).count()
+        sub_type_2 = claims.filter(type=3, sub_type=2).count()
+        sub_type_3 = claims.filter(type=3, sub_type=3).count()
+        sub_type_4 = claims.filter(type=3, sub_type=4).count()
+        sub_type_5 = claims.filter(type=3, sub_type=5).count()
+        total_labeled = claims.filter(is_labeled=True).count()
+        total_skipped_labeled = claims.filter(is_labeled=True, label='SKIPPED').count()
+        supported_claim = claims.filter(label='SUPPORTED').count()
+        refuted_claim = claims.filter(label='REFUTED').count()
+        nei_claim = claims.filter(label='NEI').count()
         return Response({
             'result': 200,
             'project_id': project.id,
@@ -146,8 +163,46 @@ class ProjectViewSet(viewsets.ModelViewSet):
             'project_description': project.description,
             'project_owner': project.owner.to_dict(),
             'project_member': member_data,
-            'claim': {},
-            'label': {}
+            'document': {
+                'total': total_document,
+                'highlighted': highlighted_document
+            },
+            'claim': {
+                'total': total_claim,
+                'type_1': claim_type_1,
+                'type_2': claim_type_2,
+                'type_3': {
+                    'total': claim_type_3,
+                    'more_specific': sub_type_1,
+                    'generalization': sub_type_2,
+                    'negation': sub_type_3,
+                    'paraphrasing': sub_type_4,
+                    'entity_substitution': sub_type_5
+                }
+            },
+            'label': {
+                'total_verified_claim': total_labeled-total_skipped_labeled,
+                'total_not_verified_claim': total_claim-total_labeled,
+                'supported': supported_claim,
+                'refuted': refuted_claim,
+                'nei': nei_claim
+            }
+        })
+
+    def list(self, request):
+        user = User.objects.filter(email=request.user).first()
+        if user is None:
+            return Response({
+                'result': 401
+            })
+        project_members = ProjectMember.objects.filter(user=user)
+        projects = []
+        for project_member in project_members:
+            projects.append(project_member.project.to_dict())
+        return Response({
+            'result': 200,
+            'count': len(projects),
+            'projects': projects
         })
 
 
@@ -238,7 +293,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
             })
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
-            serializer.save(project=project)
+            serializer.save(project=project, is_highlighted=False)
             return Response({
                 'result': 201
             })
@@ -266,7 +321,7 @@ class ClaimViewSet(viewsets.ModelViewSet):
                 'detail': check_project_member['detail']
             })
         project = Project.objects.filter(id=request.data['project_id']).first()
-        highlight = Document.objects.filter(project=project, is_highlighted=False).first()
+        highlight = Document.objects.filter(project=project).first()
         if highlight is None:
             return Response({
                 'result': 400,
@@ -275,8 +330,102 @@ class ClaimViewSet(viewsets.ModelViewSet):
         else:
             highlight.is_highlighted = True
             highlight.save()
-            # TODO: get data from es -> highlight
+            # TODO: get highlight list
             return Response({
                 'result': 200,
-                'es_id': highlight.es_id
+                'es_id': highlight.es_id,
+                'highlight': ["sentence0", "sentence1", "sentence2", "sentence3"],
+                'document_id': highlight.id
             })
+
+    def create(self, request):
+        user = User.objects.filter(email=request.user).first()
+        if user is None:
+            return Response({
+                'result': 401
+            })
+        check_project_member = is_user_in_project(user.id, request.data['project_id'])
+        if not check_project_member['result']:
+            return Response({
+                'result': 404,
+                'detail': check_project_member['detail']
+            })
+        project = Project.objects.filter(id=request.data['project_id']).first()
+        document = Document.objects.filter(id=request.data['document_id']).first()
+        if document is None:
+            return Response({
+                'result': 404,
+                'detail': 'Document is not exist'
+            })
+        Claim.objects.create(project=project, document=document, type=1, content=request.data['claim_1'])
+        Claim.objects.create(project=project, document=document, type=2, content=request.data['claim_2'])
+        Claim.objects.create(project=project, document=document, type=3, sub_type=request.data['sub_type'],
+                             content=request.data['claim_3'])
+        return Response({
+            'result': 201
+        })
+
+
+class EvidenceViewSet(viewsets.ModelViewSet):
+    queryset = Evidence.objects.all()
+
+    @action(detail=False, methods=["get"])
+    def get_claim(self, request, pk=None):
+        user = User.objects.filter(email=request.user).first()
+        if user is None:
+            return Response({
+                'result': 401
+            })
+        check_project_member = is_user_in_project(user.id, request.data['project_id'])
+        if not check_project_member['result']:
+            return Response({
+                'result': 404,
+                'detail': check_project_member['detail']
+            })
+        project = Project.objects.filter(id=request.data['project_id']).first()
+        claim = Claim.objects.filter(project=project, is_labeled=False).first()
+        if claim is None:
+            return Response({
+                'result': 400,
+                'detail': 'There is no claim left'
+            })
+        claim.is_labeled = True
+        claim.label = 'SKIPPED'
+        claim.save()
+        return Response({
+            'result': 200,
+            'claim_id': claim.id,
+            'claim': claim.content
+        })
+
+    def create(self, request):
+        user = User.objects.filter(email=request.user).first()
+        if user is None:
+            return Response({
+                'result': 401
+            })
+        check_project_member = is_user_in_project(user.id, request.data['project_id'])
+        if not check_project_member['result']:
+            return Response({
+                'result': 404,
+                'detail': check_project_member['detail']
+            })
+        project = Project.objects.filter(id=request.data['project_id']).first()
+        claim = Claim.objects.filter(id=request.data['claim_id'], project=project).first()
+        if claim is None:
+            return Response({
+                'result': 404,
+                'claim': 'Claim is not exist in project'
+            })
+
+        # Update claim label with evidences and annotators
+        claim.label = request.data['label']
+        claim.save()
+        evidences = request.data['evidence']
+        for evidence in evidences:
+            Evidence.objects.create(claim=claim, content=evidence['content'], context=evidence['context'])
+        Annotator.objects.create(claim=claim, annotators=request.data['annotator_operation'])
+
+        return Response({
+            'result': 201
+        })
