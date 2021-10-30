@@ -17,7 +17,7 @@ export default class Register extends React.Component {
                 />
                 <TextField
                     className={`tf-normal`}
-                    id={`tf-full-name`}
+                    id={`tf-full-name`} 
                     label="Họ và tên"
                     variant="outlined"
                 />
@@ -42,7 +42,7 @@ export default class Register extends React.Component {
                 <p>
                     Đã có tài khoản? <span
                         onClick={() => {
-                            history.push("/");
+                            history.push("/login");
                         }}
                         className={`sp-login-hyperlink`}
                     >

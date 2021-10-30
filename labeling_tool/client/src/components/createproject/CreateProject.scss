@@ -1,0 +1,29 @@
+.createproject-container {
+    display: block;
+    text-align: center;
+    .div-upload {
+        .pp-status {
+            display: inline-block;
+            width: 130px;
+            margin-left: 20px;
+            line-height: 40px;
+        }
+        .bt-upload {
+            line-height: 30px;
+            width: 250px;
+        }
+    }
+    .bt-create {
+        line-height: 30px;
+        margin-top: 50px;
+        width: 400px;
+    }
+    .tf {
+        margin: 20px auto;
+        display: block;
+        width: 400px;
+        .MuiOutlinedInput-root {
+            width: 400px;
+        }
+    }
+}

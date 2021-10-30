@@ -1,0 +1,31 @@
+.project-detail-container {
+    text-align: center;
+    overflow-x: hidden;
+    .section-list-container {
+        display: block;
+        width: 100vw;
+        .section {
+            vertical-align: top;
+            text-align: start;
+            padding: 1vw;
+            margin: 1vw;
+            display: inline-block;
+            width: 46vw;
+            min-width: 500px;
+            min-height: 170px;
+            .lp-db {
+                height: 10px;
+            }
+        }
+        .section-member {
+            p {
+                display: inline-block;
+                margin-right: 10px;
+            }
+            .bt-add-member {
+                display: block;
+                margin-top: 10px;
+            }
+        }
+    }
+}

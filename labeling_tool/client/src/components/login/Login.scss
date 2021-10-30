@@ -1,6 +1,12 @@
 .login-container {
+    width: 100%;
+    position: absolute;
+    top: 50%;
+    text-align: center;
+    -ms-transform: translateY(-50%);
+    transform: translateY(-50%);
     .tf-username, .tf-password {
-        margin: 20px auto;
+        margin: 30px auto;
         display: block;
         width: 400px;
         .MuiOutlinedInput-root {
@@ -14,7 +20,7 @@
     }
     .bt-login {
         display: block;
-        margin: 20px auto;
+        margin: 40px auto;
         width: 200px;
     }
 }
