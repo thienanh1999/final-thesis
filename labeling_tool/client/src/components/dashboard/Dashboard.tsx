@@ -10,6 +10,7 @@ import TableRow from '@mui/material/TableRow';
 import Paper from '@mui/material/Paper';
 import { styled } from '@mui/material/styles';
 import Link from '@mui/material/Link';
+import history from "../../history";
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
     [`&.${tableCellClasses.head}`]: {
@@ -58,6 +59,7 @@ export default class Dashboard extends React.Component {
                 <Button
                     variant="contained"
                     className={`btn-create-new-prj`}
+                    onClick={()=> history.push("/createproject")}
                 >
                     Tạo dự án mới
                 </Button>

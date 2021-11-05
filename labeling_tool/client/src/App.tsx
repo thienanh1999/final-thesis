@@ -10,11 +10,10 @@ import Login from "./components/login/Login";
 import Header from "./components/header/Header";
 import CreateProject from "./components/createproject/CreateProject";
 import ProjectDetail from "./components/projectdetail/ProjectDetail";
-
 function App() {
 	return (
 		<div className={`container`}>
-			<Header />
+			< Header />
 			<Router history={history}>
 				<Route exact path='/' component={Main} />
 				<Route exact path='/register' component={Register} />

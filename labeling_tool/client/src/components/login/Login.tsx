@@ -4,7 +4,16 @@ import "./Login.scss"
 import history from "../../history";
 import axios from "axios";
 
-export default class Login extends React.Component {
+interface ILoginState {
+    loginFailed: boolean;
+}
+export default class Login extends React.Component<{}, ILoginState> {
+    constructor(props: {}) {
+        super(props);
+        this.state = {
+            loginFailed: false,
+        }
+    }
     render() {
         return (
             <div className={`login-container`}>
@@ -25,7 +34,7 @@ export default class Login extends React.Component {
                     className={`tf-password`}
                     id={`tf-username`}
                     label="Mật khẩu"
-                    variant="outlined"
+                    type="password"
                 />
                 <p>
                     Chưa có tài khoản? <span
@@ -43,12 +52,16 @@ export default class Login extends React.Component {
                     variant="contained"
                     onClick={() => {
                         axios.post(
-                            "https://127.0.0.1:1337/api/auth/login",
+                            "http://localhost:8000/api/auth/login",
                             {
-                                "email": "anhvtt3@fimo.edu.vn",
-                                "password": "thienanh1"
+                                "email": "anhvtt1@fimo.edu.vn",
+                                "password": "thienanh1",
                             }
                         ).then((res) => console.log(res));
+
+                        // localStorage.setItem('loggedIn', "1");
+                        // localStorage.setItem('userFullName', "Vũ Thị Thiên Anh");
+                        // history.push("/dashboard");
                     }}
                 >
                     Đăng nhập

@@ -4,6 +4,7 @@ import "./Header.scss";
 import AccountCircle from '@mui/icons-material/AccountCircle';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
+import history from "../../history";
 
 interface IHeaderState {
     anchorEl: any;
@@ -23,23 +24,35 @@ export default class Header extends React.Component<{}, IHeaderState> {
     private handleMenuClose = () => {
         this.setState({ anchorEl: null, menuIsOpen: false });
     };
+    private handleLogout = () => {
+        this.setState({ anchorEl: null, menuIsOpen: false });
+        localStorage.setItem("loggedIn", "0");
+        localStorage.setItem("userFullName", "");
+        history.push("/login")
+    };
     render() {
         return (
             <AppBar className={`header-container`} position="static">
                 <Toolbar>
-                    <div className={`div-logo-home`}>
+                    <div className={`div-logo-home`} onClick={() => history.push("/")}>
                         <img className={`img-home`} src='/fimo-logo-300x97.png' alt='fimo-logo' />
                     </div>
                     <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
                         FIMO Labeling tool
                     </Typography>
-                    <Button
+                    {localStorage.getItem('loggedIn') === "1" && <Button
                         color="inherit"
                         onClick={this.handleMenuOpen}
                     >
-                        Nguyễn Thức Quang Hưng
+                        {localStorage.getItem('userFullName')}
                         <AccountCircle sx={{ ml: 3 }} />
-                    </Button>
+                    </Button>}
+                    {localStorage.getItem('loggedIn') !== "1" && <Button
+                        color="inherit"
+                        onClick={() => { history.push("/login") }}
+                    >
+                        Đăng nhập
+                    </Button>}
                 </Toolbar>
                 <Menu
                     anchorEl={this.state.anchorEl}
@@ -58,6 +71,7 @@ export default class Header extends React.Component<{}, IHeaderState> {
                 >
                     <MenuItem onClick={this.handleMenuClose}>Cập nhật thông tin cá nhân</MenuItem>
                     <MenuItem onClick={this.handleMenuClose}>Đổi mật khẩu</MenuItem>
+                    <MenuItem onClick={this.handleLogout}>Đăng xuất</MenuItem>
                 </Menu>
             </AppBar>
         )
