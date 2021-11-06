@@ -97,6 +97,23 @@ class SearchMemberView(APIView):
             'users': data
         })
 
+class UserViewSet(APIView):
+    @staticmethod
+    def get(request):
+        user = User.objects.filter(email=request.user).first()
+        if user is None:
+            return Response({
+                'result': 401
+            })
+        users = User.objects.all()
+        data = []
+        for u in users:
+            data.append(u.to_dict())
+        return Response({
+            'result': 200,
+            'users': data
+        })
+
 
 class ProjectViewSet(viewsets.ModelViewSet):
     queryset = Project.objects.all()
