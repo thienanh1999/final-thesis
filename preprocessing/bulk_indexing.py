@@ -22,7 +22,7 @@ def bulk_index(es_client, index, json_file_path):
     json_file.close()
 
 
-client = Elasticsearch('localhost:9200')
+client = Elasticsearch('fimovm:9200')
 
 govnews_path = '/home/athen/final-thesis/crawler/crawled_data/preproccessed_govnews.json'
 govtimeline_path = '/home/athen/final-thesis/crawler/crawled_data/preproccessed_govtimeline.json'

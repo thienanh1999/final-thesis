@@ -2,14 +2,14 @@ import {
 	Router,
 	Route,
 } from "react-router-dom";
-import Main from './components';
-import Register from "./components/register/Register";
+import Main from './pages';
+import Register from "./pages/register/Register";
 import history from './history';
-import Dashborad from "./components/dashboard/Dashboard";
-import Login from "./components/login/Login";
-import Header from "./components/header/Header";
-import CreateProject from "./components/createproject/CreateProject";
-import ProjectDetail from "./components/projectdetail/ProjectDetail";
+import Dashborad from "./pages/dashboard/Dashboard";
+import Login from "./pages/login/Login";
+import Header from "./pages/header/Header";
+import CreateProject from "./pages/createproject/CreateProject";
+import ProjectDetail from "./pages/projectdetail/ProjectDetail";
 import { connect } from 'react-redux';
 import { IRootState } from './redux';
 import * as snackBarActions from './redux/snackbar/actions';
@@ -26,6 +26,7 @@ import { SnackBarType } from "./utils/enumerates";
 import { ISnackBarState, SnackBarActions } from "./redux/snackbar/types";
 import { Dispatch } from "redux";
 import Utils from "./utils/utils";
+import CreateClaims from "./pages/createclaims/CreateClaims";
 
 function mapDispatcherToProps(dispatch: Dispatch<SnackBarActions>): IAppPropsFromDispatch {
 	return {
@@ -79,7 +80,8 @@ class App extends React.Component<IAppProps> {
 					<Route exact path='/dashboard' component={Dashborad} />
 					<Route exact path='/login' component={Login} />
 					<Route exact path='/createproject' component={CreateProject} />
-					<Route exact path='/project' component={ProjectDetail} />
+					<Route exact path='/project/:id' component={ProjectDetail} />
+					<Route exact path='/project/:id/createclaims' component={CreateClaims} />
 				</Router>
 				<Modal
 					open={!!this.props.showTopLoading}

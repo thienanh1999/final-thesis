@@ -28,6 +28,11 @@ export default class Header extends React.Component<{}, IHeaderState> {
         this.setState({ anchorEl: null, menuIsOpen: false });
         localStorage.setItem("loggedIn", "0");
         localStorage.setItem("userFullName", "");
+        localStorage.setItem("accessToken", "")
+        localStorage.setItem("refreshToken", "")
+        localStorage.setItem("userId", "")
+        localStorage.setItem("accessExpires", "")
+        localStorage.setItem("refreshExpires", "")
         history.push("/login")
     };
     render() {

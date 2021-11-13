@@ -11,6 +11,14 @@ const API = axios.create({
 
 API.interceptors.request.use(
     async config => {
+        if (
+            config !== undefined &&
+            !!config.headers &&
+            !!localStorage.getItem("accessToken") &&
+            localStorage.getItem("accessToken") !== ""
+        ) {
+            config.headers.Authorization = `Bearer ${localStorage.getItem("accessToken")}`
+        }
         return config;
     },
     err => {
@@ -23,7 +31,7 @@ API.interceptors.response.use(
         return res;
     },
     err => {
-        return Promise.reject(err.response.data);
+        return Promise.reject(!!err.response?.data ? err.response.data : err.response);
     }
 );
 

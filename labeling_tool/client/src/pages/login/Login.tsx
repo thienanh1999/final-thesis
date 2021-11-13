@@ -2,8 +2,8 @@ import { Button, TextField } from "@mui/material";
 import React from "react";
 import "./Login.scss"
 import history from "../../history";
-import * as generalActions from './../../redux/general/actions';
-import * as snackBarActions from './../../redux/snackbar/actions';
+import * as generalActions from "../../redux/general/actions";
+import * as snackBarActions from "../../redux/snackbar/actions";
 import { connect } from "react-redux";
 import userAPI from "../../api/userAPI";
 import { SnackBarType } from "../../utils/enumerates";
@@ -48,8 +48,8 @@ class Login extends React.Component<ILoginProps, ILoginState> {
             <div className={`login-container`}>
                 <img
                     className={`img-logo`}
-                    src='/fimo-logo-300x97.png'
-                    alt='fimo-logo'
+                    src="/fimo-logo-300x97.png"
+                    alt="fimo-logo"
                 />
 
                 <h1>Đăng nhập</h1>
@@ -100,23 +100,32 @@ class Login extends React.Component<ILoginProps, ILoginState> {
                     className={`bt-login`}
                     variant="contained"
                     onClick={() => {
+                        this.setState({
+                            errMsg: "",
+                            emailErrMsg: "",
+                            passwordErrMsg: ""
+                        })
                         showTopLoading!();
                         userAPI
                             .login(email, password)
                             .then(res => {
                                 if (res.data.result === 201) {
-                                    localStorage.setItem('loggedIn', "1");
-                                    localStorage.setItem('userFullName', res.data.email);
+                                    localStorage.setItem("loggedIn", "1");
+                                    localStorage.setItem("userFullName", res.data.email);
+                                    localStorage.setItem("accessToken", res.data.access_token)
+                                    localStorage.setItem("refreshToken", res.data.refresh_token)
+                                    localStorage.setItem("userId", res.data.user_id)
+                                    localStorage.setItem("accessExpires", res.data.access_expires)
+                                    localStorage.setItem("refreshExpires", res.data.refresh_expires)
                                     history.push("/dashboard");
+                                    showSnackBar!(
+                                        res.data.message,
+                                        4000,
+                                        SnackBarType.Success
+                                    )
                                 } else {
                                     this.setState({ errMsg: "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin!" });
                                 }
-                                hideTopLoading!();
-                                showSnackBar!(
-                                    "Đăng nhập thành công!",
-                                    2000,
-                                    SnackBarType.Success
-                                )
                             })
                             .catch(err => {
                                 if (
@@ -149,13 +158,13 @@ class Login extends React.Component<ILoginProps, ILoginState> {
                                 } else {
                                     this.setState({ errMsg: "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin!" });
                                 }
-                                hideTopLoading!();
                             })
+                            .finally(() => hideTopLoading!())
                     }}
                 >
                     Đăng nhập
                 </Button>
-            </div>
+            </div >
         )
     }
 }
