@@ -101,8 +101,8 @@ class Claim(models.Model):
     content = models.TextField()
     is_labeled = models.BooleanField(default=False)
     label = models.CharField(max_length=20, default='')
-    created_by = models.ForeignKey(User, on_delete=models.DO_NOTHING)
-    annotated_by = models.ForeignKey(User, on_delete=models.DO_NOTHING)
+    created_by = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name='+')
+    annotated_by = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name='+')
 
     class Meta:
         db_table = "claim"
@@ -122,7 +122,7 @@ class Annotator(models.Model):
     operation = models.TextField(max_length=50)
     document = models.ForeignKey(Document, on_delete=models.DO_NOTHING, default=None)
     sentence = models.ForeignKey(Sentence, on_delete=models.DO_NOTHING, default=None)
-    cell = models.ForeignKey(Sentence, on_delete=models.DO_NOTHING, default=None)
+    cell = models.ForeignKey(Cell, on_delete=models.DO_NOTHING, default=None)
 
     class Meta:
         db_table = "annotator"
