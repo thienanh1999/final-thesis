@@ -31,15 +31,27 @@ class Project(models.Model):
     name = models.CharField(max_length=100, unique=True)
     description = models.CharField(max_length=1000)
     owner = models.ForeignKey(User, on_delete=models.DO_NOTHING)
-    k = models.FloatField()
-    b1 = models.FloatField()
+    k = models.FloatField(null=False)
+    b1 = models.FloatField(null=False)
+    num_sequence_highlight = models.IntegerField(default=4)
+    min_table_row_highlight = models.IntegerField(default=5)
+    max_table_row_highlight = models.IntegerField(default=50)
 
     def to_dict(self):
         return {
             'id': self.id,
             'name': self.name,
             'description': self.description,
-            'owner': self.owner.to_dict()
+            'owner': self.owner.to_dict(),
+            'config': {
+                'k': self.k,
+                'b1': self.b1,
+                'highlight': {
+                    'num_sequence_highlight': self.num_sequence_highlight,
+                    'min_table_row_highlight': self.min_table_row_highlight,
+                    'max_table_row_highlight': self.max_table_row_highlight
+                }
+            }
         }
 
     class Meta:

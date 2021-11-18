@@ -23,7 +23,7 @@ class UserLoginSerializer(serializers.Serializer):
 class ProjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = Project
-        fields = ('name', 'description')
+        fields = ('name', 'description', 'k', 'b1', 'num_sequence_highlight', 'min_table_row_highlight', 'max_table_row_highlight')
 
 
 class ProjectMemberSerializer:
@@ -52,12 +52,6 @@ class ProjectMemberSerializer:
     def save(self):
         project_member = ProjectMember(user=self.user, project=self.project)
         project_member.save()
-
-
-class DocumentSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Document
-        fields = ['es_id', 'orders']
 
 
 class ClaimSerializer(serializers.ModelSerializer):
