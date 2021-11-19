@@ -31,12 +31,14 @@ export default class Register extends React.Component {
                     className={`tf-password`}
                     id={`tf-username`}
                     label="Mật khẩu"
+                    type="password"
                     variant="outlined"
                 />
                 <TextField
                     className={`tf-password`}
                     id={`tf-username`}
                     label="Xác nhận mật khẩu"
+                    type="password"
                     variant="outlined"
                 />
                 <p>

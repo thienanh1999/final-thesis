@@ -1,3 +1,4 @@
+import json
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
 from django.http import JsonResponse
@@ -13,15 +14,19 @@ from .serializers import UserSerializer, UserLoginSerializer, ProjectSerializer,
     DocumentSerializer, ClaimSerializer
 from django.conf import settings
 from .utils import *
-
+from rest_framework.parsers import MultiPartParser, FileUploadParser
+from elasticsearch import Elasticsearch, helpers
 
 # Create your views here.
+
+
 class UserRegisterView(APIView):
     @staticmethod
     def post(request):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.validated_data['password'] = make_password(serializer.validated_data['password'])
+            serializer.validated_data['password'] = make_password(
+                serializer.validated_data['password'])
             serializer.save()
 
             return JsonResponse({
@@ -97,6 +102,7 @@ class SearchMemberView(APIView):
             'users': data
         })
 
+
 class UserViewSet(APIView):
     @staticmethod
     def get(request):
@@ -113,6 +119,49 @@ class UserViewSet(APIView):
             'result': 200,
             'users': data
         })
+
+
+class FileUploadView(APIView):
+    parser_classes = [MultiPartParser]
+
+    def post(self, request):
+        try:
+            print(request.FILES)
+            up_file = request.FILES['file']
+            with open('/tmp/temp.json', 'wb+') as new_file:
+                for chunk in up_file.chunks():
+                    new_file.write(chunk)
+
+            client = Elasticsearch('fimovm:9200')
+
+            client.indices.create(
+                index="hehehe",
+                body={
+                    'settings': {
+                        'number_of_shards': 2,
+                        'number_of_replicas': 2,
+                        'analysis': {
+                            'analyzer': "vi_analyzer"
+                        }
+                    }
+                },
+                ignore=400
+            )
+            json_file = open('/tmp/temp.json', 'r')
+            data = json.load(json_file)
+            print('Indexing {}'.format('/tmp/temp.json'))
+            resp = helpers.bulk(
+                client,
+                data,
+                index="hehehe",
+            )
+            print("helpers.bulk() RESPONSE:", resp)
+            print("helpers.bulk() RESPONSE:", json.dumps(resp, indent=4))
+
+            return Response("hehehe", status.HTTP_201_CREATED)
+        except Exception as e:
+            print(e)
+            return Response("heheh1e", status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
@@ -154,10 +203,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_members = ProjectMember.objects.filter(project=project)
         member_data = []
         for project_member in project_members:
-            member = User.objects.filter(id=project_member.user.id).first().to_dict()
+            member = User.objects.filter(
+                id=project_member.user.id).first().to_dict()
             member_data.append(member)
         total_document = Document.objects.filter(project=project).count()
-        highlighted_document = Document.objects.filter(project=project, is_highlighted=True).count()
+        highlighted_document = Document.objects.filter(
+            project=project, is_highlighted=True).count()
         claims = Claim.objects.filter(project=project)
         total_claim = claims.count()
         claim_type_1 = claims.filter(type=1).count()
@@ -169,7 +220,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
         sub_type_4 = claims.filter(type=3, sub_type=4).count()
         sub_type_5 = claims.filter(type=3, sub_type=5).count()
         total_labeled = claims.filter(is_labeled=True).count()
-        total_skipped_labeled = claims.filter(is_labeled=True, label='SKIPPED').count()
+        total_skipped_labeled = claims.filter(
+            is_labeled=True, label='SKIPPED').count()
         supported_claim = claims.filter(label='SUPPORTED').count()
         refuted_claim = claims.filter(label='REFUTED').count()
         nei_claim = claims.filter(label='NEI').count()
@@ -276,7 +328,8 @@ class ProjectMemberViewSet(viewsets.ModelViewSet):
                 'result': 404,
                 'detail': 'User not found'
             })
-        project_member = self.queryset.filter(user=member, project=project).first()
+        project_member = self.queryset.filter(
+            user=member, project=project).first()
         if project_member is None:
             return Response({
                 'result': 400,
@@ -331,7 +384,8 @@ class ClaimViewSet(viewsets.ModelViewSet):
             return Response({
                 'result': 401
             })
-        check_project_member = is_user_in_project(user.id, request.data['project_id'])
+        check_project_member = is_user_in_project(
+            user.id, request.data['project_id'])
         if not check_project_member['result']:
             return Response({
                 'result': 404,
@@ -361,23 +415,27 @@ class ClaimViewSet(viewsets.ModelViewSet):
             return Response({
                 'result': 401
             })
-        check_project_member = is_user_in_project(user.id, request.data['project_id'])
+        check_project_member = is_user_in_project(
+            user.id, request.data['project_id'])
         if not check_project_member['result']:
             return Response({
                 'result': 404,
                 'detail': check_project_member['detail']
             })
         project = Project.objects.filter(id=request.data['project_id']).first()
-        document = Document.objects.filter(id=request.data['document_id']).first()
+        document = Document.objects.filter(
+            id=request.data['document_id']).first()
         if document is None:
             return Response({
                 'result': 404,
                 'detail': 'Document is not exist'
             })
-        Claim.objects.create(project=project, document=document, type=1, content=request.data['claim_1'])
-        Claim.objects.create(project=project, document=document, type=2, content=request.data['claim_2'])
+        Claim.objects.create(project=project, document=document,
+                            type=1, content=request.data['claim_1'])
+        Claim.objects.create(project=project, document=document,
+                            type=2, content=request.data['claim_2'])
         Claim.objects.create(project=project, document=document, type=3, sub_type=request.data['sub_type'],
-                             content=request.data['claim_3'])
+                            content=request.data['claim_3'])
         return Response({
             'result': 201
         })
@@ -393,7 +451,8 @@ class EvidenceViewSet(viewsets.ModelViewSet):
             return Response({
                 'result': 401
             })
-        check_project_member = is_user_in_project(user.id, request.data['project_id'])
+        check_project_member = is_user_in_project(
+            user.id, request.data['project_id'])
         if not check_project_member['result']:
             return Response({
                 'result': 404,
@@ -421,14 +480,16 @@ class EvidenceViewSet(viewsets.ModelViewSet):
             return Response({
                 'result': 401
             })
-        check_project_member = is_user_in_project(user.id, request.data['project_id'])
+        check_project_member = is_user_in_project(
+            user.id, request.data['project_id'])
         if not check_project_member['result']:
             return Response({
                 'result': 404,
                 'detail': check_project_member['detail']
             })
         project = Project.objects.filter(id=request.data['project_id']).first()
-        claim = Claim.objects.filter(id=request.data['claim_id'], project=project).first()
+        claim = Claim.objects.filter(
+            id=request.data['claim_id'], project=project).first()
         if claim is None:
             return Response({
                 'result': 404,
@@ -440,8 +501,10 @@ class EvidenceViewSet(viewsets.ModelViewSet):
         claim.save()
         evidences = request.data['evidence']
         for evidence in evidences:
-            Evidence.objects.create(claim=claim, content=evidence['content'], context=evidence['context'])
-        Annotator.objects.create(claim=claim, annotators=request.data['annotator_operation'])
+            Evidence.objects.create(
+                claim=claim, content=evidence['content'], context=evidence['context'])
+        Annotator.objects.create(
+            claim=claim, annotators=request.data['annotator_operation'])
 
         return Response({
             'result': 201
