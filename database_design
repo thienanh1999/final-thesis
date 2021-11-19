@@ -18,6 +18,8 @@ Table ProjectMember {
   id int [pk, increment]
   project_id int
   user_id int
+  k float
+  b1 float
 }
 
 Ref: ProjectMember.project_id > Project.id
@@ -25,12 +27,42 @@ Ref: ProjectMember.user_id > User.id
 
 Table Document {
   id int [pk, increment]
-  es_id varchar(255)
+  es_id int
   project_id int
-  is_highlighted boolean
+  is_processed boolean
 }
 
 Ref: Document.project_id > Project.id
+
+Table Sentence {
+  id int [pk, increment]
+  id_in_document int
+  docunent_id int
+  context text
+  is_highlighted boolean
+}
+
+Ref: Sentence.docunent_id > Document.id
+
+Table TableData {
+  id int [pk, increment]
+  id_in_document int
+  document_id int
+  is_highlighted boolean
+}
+
+Ref: TableData.document_id > Document.id
+
+Table Cell {
+  id int [pk, increment]
+  row int
+  col int
+  is_header boolean
+  table_data_id int
+  context text
+}
+
+Ref: Cell.table_data_id > TableData.id
 
 Table Claim {
   id int [pk, increment]
@@ -40,23 +72,37 @@ Table Claim {
   content text
   is_labeled boolean
   label varchar(20)
+  docunent_id int
+  created_by int
+  annotated_by int
 }
 
 Ref: Claim.project_id > Project.id
+Ref: Claim.docunent_id > Document.id
+Ref: Claim.created_by > User.id
+Ref: Claim.annotated_by > User.id
 
 Table Evidence {
   id int [pk, increment]
   claim_id int
-  content text
-  context text
+  sentence_id int
+  cell_id int
 }
 
 Ref: Evidence.claim_id > Claim.id
+Ref: Evidence.sentence_id > Sentence.id
+Ref: Evidence.cell_id > Cell.id
 
 Table Annotator {
   id int [pk, increment]
   claim_id int
-  annotators text
+  operation varchar(50)
+  document_id int
+  sentence_id int
+  cell_id int
 }
 
 Ref: Annotator.claim_id > Claim.id
+Ref: Annotator.document_id > Document.id
+Ref: Annotator.sentence_id > Sentence.id
+Ref: Annotator.cell_id > Cell.id

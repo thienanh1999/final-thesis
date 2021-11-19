@@ -11,7 +11,7 @@ from rest_framework.decorators import action
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import *
 from .serializers import UserSerializer, UserLoginSerializer, ProjectSerializer, ProjectMemberSerializer, \
-    DocumentSerializer, ClaimSerializer
+    ClaimSerializer
 from django.conf import settings
 from .utils import *
 from rest_framework.parsers import MultiPartParser, FileUploadParser
@@ -168,37 +168,28 @@ class ProjectViewSet(viewsets.ModelViewSet):
     queryset = Project.objects.all()
     serializer_class = ProjectSerializer
 
+    @auth
     def create(self, request):
         user = User.objects.filter(email=request.user).first()
-        if user is None:
-            return Response({
-                'result': 401
-            })
-
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             project = serializer.save(owner=user)
             ProjectMember.objects.create(user=user, project=project)
             return Response({
-                'result': 201,
                 'project_id': project.id,
                 'project_name': project.name,
                 'project_description': project.description,
+                'config': project.to_dict()['config'],
                 'project_owner': user.to_dict(),
                 'project_member': [user.to_dict()]
-            })
+            }, 201)
         else:
             return Response({
-                'result': 400,
                 'errors': serializer.errors
-            })
+            }, 400)
 
+    @auth
     def retrieve(self, request, pk=None):
-        user = User.objects.filter(email=request.user).first()
-        if user is None:
-            return Response({
-                'result': 401
-            })
         project = get_object_or_404(self.queryset, pk=pk)
         project_members = ProjectMember.objects.filter(project=project)
         member_data = []
@@ -207,8 +198,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 id=project_member.user.id).first().to_dict()
             member_data.append(member)
         total_document = Document.objects.filter(project=project).count()
-        highlighted_document = Document.objects.filter(
-            project=project, is_highlighted=True).count()
+        highlighted_document = Document.objects.filter(project=project, is_processed=True).count()
         claims = Claim.objects.filter(project=project)
         total_claim = claims.count()
         claim_type_1 = claims.filter(type=1).count()
@@ -226,10 +216,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
         refuted_claim = claims.filter(label='REFUTED').count()
         nei_claim = claims.filter(label='NEI').count()
         return Response({
-            'result': 200,
             'project_id': project.id,
             'project_name': project.name,
             'project_description': project.description,
+            'config': project.to_dict()['config'],
             'project_owner': project.owner.to_dict(),
             'project_member': member_data,
             'document': {
@@ -256,121 +246,80 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 'refuted': refuted_claim,
                 'nei': nei_claim
             }
-        })
+        }, 200)
 
+    @auth
     def list(self, request):
         user = User.objects.filter(email=request.user).first()
-        if user is None:
-            return Response({
-                'result': 401
-            })
         project_members = ProjectMember.objects.filter(user=user)
         projects = []
         for project_member in project_members:
             projects.append(project_member.project.to_dict())
         return Response({
-            'result': 200,
             'count': len(projects),
             'projects': projects
-        })
+        }, 200)
 
 
 class ProjectMemberViewSet(viewsets.ModelViewSet):
     queryset = ProjectMember.objects.all()
     serializer_class = ProjectMemberSerializer
 
+    @is_project_owner
     def create(self, request):
-        user = User.objects.filter(email=request.user).first()
-        if user is None:
-            return Response({
-                'result': 401
-            })
         project = Project.objects.filter(id=request.data['project_id']).first()
-        if project.owner != user:
-            return Response({
-                'result': 403
-            })
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             serializer.save()
             project_members = self.queryset.filter(project=project)
             return Response({
-                'result': 201,
                 'project_id': project.id,
                 'project_member': set(project_member.user.id for project_member in project_members)
-            })
+            }, 201)
         else:
             return Response({
-                'result': 400,
                 'error': serializer.errors
-            })
+            }, 400)
 
     @action(methods=['delete'], detail=False)
+    @is_project_owner
     def delete(self, request):
-        user = User.objects.filter(email=request.user).first()
-        if user is None:
-            return Response({
-                'result': 401
-            })
         project = Project.objects.filter(id=request.data['project_id']).first()
-        if project is None:
-            return Response({
-                'result': 404,
-                'detail': 'Project not found'
-            })
-        if project.owner != user:
-            return Response({
-                'result': 403
-            })
         member = User.objects.filter(id=request.data['user_id']).first()
         if member is None:
             return Response({
-                'result': 404,
-                'detail': 'User not found'
-            })
-        project_member = self.queryset.filter(
-            user=member, project=project).first()
+                'error': 'User not found'
+            }, 404)
+        project_member = self.queryset.filter(user=member, project=project).first()
         if project_member is None:
             return Response({
-                'result': 400,
-                'detail': 'User not in project'
-            })
-        return Response({
-            'result': 204
-        })
+                'error': 'User not in project'
+            }, 400)
+        if member == project.owner:
+            return Response({
+                'error': 'Can not remove project owner from project'
+            }, 400)
+        self.queryset.filter(user=member, project=project).delete()
+        return Response({}, 201)
 
 
 class DocumentViewSet(viewsets.ModelViewSet):
     queryset = Document.objects.all()
-    serializer_class = DocumentSerializer
 
+    @is_project_member
     def create(self, request):
-        user = User.objects.filter(email=request.user).first()
-        if user is None:
-            return Response({
-                'result': 401
-            })
         project = Project.objects.filter(id=request.data['project_id']).first()
-        if project is None:
-            return Response({
-                'result': 404,
-                'detail': 'Project not found'
-            })
-        member = ProjectMember.objects.filter(user=user).first()
-        if member is None:
-            return Response({
-                'result': 403
-            })
-        serializer = self.serializer_class(data=request.data)
-        if serializer.is_valid():
-            serializer.save(project=project, is_highlighted=False)
-            return Response({
-                'result': 201
-            })
+        n_document = request.data['n_document']
+        max_document_id = self.queryset.filter(project=project).order_by('es_id').reverse().first()
+        if max_document_id is None:
+            max_document_id = 0
         else:
-            return Response({
-                'result': 400
-            })
+            max_document_id = max_document_id.es_id
+        result = []
+        for i in range(max_document_id+1, n_document+1):
+            result.append(i)
+            Document.objects.create(project=project, es_id=i, is_processed=False)
+        return Response({'created id': result}, 201)
 
 
 class ClaimViewSet(viewsets.ModelViewSet):
@@ -378,35 +327,24 @@ class ClaimViewSet(viewsets.ModelViewSet):
     serializer_class = ClaimSerializer
 
     @action(detail=False, methods=['get'])
+    @is_project_member
     def highlight(self, request, pk=None):
-        user = User.objects.filter(email=request.user).first()
-        if user is None:
-            return Response({
-                'result': 401
-            })
-        check_project_member = is_user_in_project(
-            user.id, request.data['project_id'])
-        if not check_project_member['result']:
-            return Response({
-                'result': 404,
-                'detail': check_project_member['detail']
-            })
         project = Project.objects.filter(id=request.data['project_id']).first()
-        highlight = Document.objects.filter(project=project).first()
-        if highlight is None:
+        document = Document.objects.filter(project=project).first()
+        if document is None:
             return Response({
-                'result': 400,
-                'detail': 'There is no highlight left'
-            })
+                'detail': 'There is no document left'
+            }, 400)
         else:
-            highlight.is_highlighted = True
-            highlight.save()
+            # TODO: get document data from es with offset = document.id
+            document.is_highlighted = True
+            document.save()
             # TODO: get highlight list
             return Response({
                 'result': 200,
-                'es_id': highlight.es_id,
+                'es_id': document.es_id,
                 'highlight': ["sentence0", "sentence1", "sentence2", "sentence3"],
-                'document_id': highlight.id
+                'document_id': document.id
             })
 
     def create(self, request):
