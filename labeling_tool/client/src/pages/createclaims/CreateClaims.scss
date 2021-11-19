@@ -1,0 +1,19 @@
+.create-claims-container {
+    p {
+        cursor: pointer;
+        margin: 0;
+        padding: 5px 10px;
+        border-radius: 3px;
+        &:hover {
+            background-color: bisque;
+        }
+    }
+    p.highlighted {
+        border-radius: 0px;
+        color: white;
+        background-color: #438dd8;
+        &:hover {
+            background-color: darkslateblue;
+        }
+    }
+}

@@ -178,6 +178,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return Response({
                 'project_id': project.id,
                 'project_name': project.name,
+                'es_id': project.es_id,
                 'project_description': project.description,
                 'config': project.to_dict()['config'],
                 'project_owner': user.to_dict(),
@@ -198,7 +199,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 id=project_member.user.id).first().to_dict()
             member_data.append(member)
         total_document = Document.objects.filter(project=project).count()
-        highlighted_document = Document.objects.filter(project=project, is_processed=True).count()
+        highlighted_document = Document.objects.filter(
+            project=project, is_processed=True).count()
         claims = Claim.objects.filter(project=project)
         total_claim = claims.count()
         claim_type_1 = claims.filter(type=1).count()
@@ -219,6 +221,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             'project_id': project.id,
             'project_name': project.name,
             'project_description': project.description,
+            'es_id': project.es_id,
             'config': project.to_dict()['config'],
             'project_owner': project.owner.to_dict(),
             'project_member': member_data,
@@ -290,7 +293,8 @@ class ProjectMemberViewSet(viewsets.ModelViewSet):
             return Response({
                 'error': 'User not found'
             }, 404)
-        project_member = self.queryset.filter(user=member, project=project).first()
+        project_member = self.queryset.filter(
+            user=member, project=project).first()
         if project_member is None:
             return Response({
                 'error': 'User not in project'
@@ -310,7 +314,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
     def create(self, request):
         project = Project.objects.filter(id=request.data['project_id']).first()
         n_document = request.data['n_document']
-        max_document_id = self.queryset.filter(project=project).order_by('es_id').reverse().first()
+        max_document_id = self.queryset.filter(
+            project=project).order_by('es_id').reverse().first()
         if max_document_id is None:
             max_document_id = 0
         else:
@@ -318,7 +323,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
         result = []
         for i in range(max_document_id+1, n_document+1):
             result.append(i)
-            Document.objects.create(project=project, es_id=i, is_processed=False)
+            Document.objects.create(
+                project=project, es_id=i, is_processed=False)
         return Response({'created id': result}, 201)
 
 

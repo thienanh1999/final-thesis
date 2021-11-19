@@ -50,8 +50,8 @@ export default class Dashboard extends React.Component<{}, IDashboardState> {
             if (
                 !!res &&
                 !!res.data &&
-                !!res.data.result &&
-                res.data.result === 200 &&
+                !!res.status &&
+                res.status === 200 &&
                 res.data.count > 0 &&
                 !!res.data.projects
             ) {
@@ -80,6 +80,7 @@ export default class Dashboard extends React.Component<{}, IDashboardState> {
                                     <StyledTableCell align="center">Mô tả</StyledTableCell>
                                     {/* <StyledTableCell align="center">Mệnh đề</StyledTableCell>
                                     <StyledTableCell align="center">Tiến trình</StyledTableCell> */}
+                                    <StyledTableCell align="center">Elasticsearch Index</StyledTableCell> 
                                 </StyledTableRow>
                             </TableHead>
                             <TableBody>
@@ -100,6 +101,7 @@ export default class Dashboard extends React.Component<{}, IDashboardState> {
                                         <StyledTableCell align="center">{row.description}</StyledTableCell>
                                         {/* <StyledTableCell align="center">{row.total}</StyledTableCell>
                                         <StyledTableCell align="center">{row.done}/{row.total}</StyledTableCell> */}
+                                        <StyledTableCell align="center">{row.es_id}</StyledTableCell> 
                                     </StyledTableRow>
                                 ))}
                             </TableBody>

@@ -31,11 +31,12 @@ class Project(models.Model):
     name = models.CharField(max_length=100, unique=True)
     description = models.CharField(max_length=1000)
     owner = models.ForeignKey(User, on_delete=models.DO_NOTHING)
-    k = models.FloatField(null=False)
-    b1 = models.FloatField(null=False)
+    k = models.FloatField(null=False, default=0.75)
+    b1 = models.FloatField(null=False, default=0.5)
     num_sequence_highlight = models.IntegerField(default=4)
     min_table_row_highlight = models.IntegerField(default=5)
     max_table_row_highlight = models.IntegerField(default=50)
+    es_id = models.CharField(max_length=100, unique=True, null=False)
 
     def to_dict(self):
         return {
@@ -43,6 +44,7 @@ class Project(models.Model):
             'name': self.name,
             'description': self.description,
             'owner': self.owner.to_dict(),
+            'es_id': self.es_id,
             'config': {
                 'k': self.k,
                 'b1': self.b1,

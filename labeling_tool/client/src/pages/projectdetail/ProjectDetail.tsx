@@ -58,11 +58,12 @@ class ProjectDetail extends React.Component<IProjectDetailProps, IProjectDetailS
             projectAPI
                 .getPrjDetail(prjId)
                 .then((res: any) => {
-                    if (res && res.data && res.data.result && res.data.result === 200) {
+                    console.log(res);
+                    if (res && res.data && res.status && res.status === 200) {
                         this.setState({ prjDetail: res.data });
                     } else {
                         this.props.showSnackBar!(
-                            "Xảy ra lỗi khi lấy dữ liệu dự án!" + res.message,
+                            "Xảy ra lỗi khi lấy dữ liệu dự án!" + res.statusText,
                             10000,
                             SnackBarType.Error
                         );
@@ -70,7 +71,7 @@ class ProjectDetail extends React.Component<IProjectDetailProps, IProjectDetailS
                 })
                 .catch(err => {
                     this.props.showSnackBar!(
-                        "Xảy ra lỗi khi lấy dữ liệu dự án!" + err.message,
+                        "Xảy ra lỗi khi lấy dữ liệu dự án!" + err.statusText,
                         10000,
                         SnackBarType.Error
                     );

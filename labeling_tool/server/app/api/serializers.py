@@ -23,7 +23,16 @@ class UserLoginSerializer(serializers.Serializer):
 class ProjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = Project
-        fields = ('name', 'description', 'k', 'b1', 'num_sequence_highlight', 'min_table_row_highlight', 'max_table_row_highlight')
+        fields = (
+            'name',
+            'description',
+            'k',
+            'b1',
+            'num_sequence_highlight',
+            'min_table_row_highlight',
+            'max_table_row_highlight',
+            'es_id',
+        )
 
 
 class ProjectMemberSerializer:
@@ -41,7 +50,8 @@ class ProjectMemberSerializer:
         if project is None:
             self.errors['project_id'] = 'Project is not exist.'
             return False
-        project_member = ProjectMember.objects.filter(user=user, project=project).first()
+        project_member = ProjectMember.objects.filter(
+            user=user, project=project).first()
         if project_member is not None:
             self.errors['user_id'] = 'User already in the project.'
             return False
