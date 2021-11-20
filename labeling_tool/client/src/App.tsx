@@ -73,7 +73,7 @@ class App extends React.Component<IAppProps> {
 	render() {
 		return (
 			<div className={`container`}>
-				< Header />
+				<Header inLoginScreen={window.location.pathname === "/login"} />
 				<Router history={history}>
 					<Route exact path='/' component={Main} />
 					<Route exact path='/register' component={Register} />
@@ -103,13 +103,13 @@ class App extends React.Component<IAppProps> {
 				<Snackbar
 					open={!!this.props.snackBarState?.showSnackBar} autoHideDuration={
 						!!this.props.snackBarState?.duration ?
-						this.props.snackBarState.duration : 2000
+							this.props.snackBarState.duration : 2000
 					}
 					onClose={this.handleClose}>
 					<Alert
 						onClose={this.handleClose}
 						severity={Utils.convertSnackBarType(
-							this.props.snackBarState?.type 
+							this.props.snackBarState?.type
 						)}
 						sx={{ width: '100%' }}
 					>

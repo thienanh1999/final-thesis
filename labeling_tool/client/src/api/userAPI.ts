@@ -2,7 +2,7 @@ import API from "./api";
 
 class UserAPI {
     register = (pEmail: string, pName: string, pPassword: string) => {
-        const url = '/auth/login';
+        const url = '/auth/register';
         return API.post(url, { 
             email: pEmail, 
             password: pPassword,

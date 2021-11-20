@@ -10,7 +10,7 @@ interface IHeaderState {
     anchorEl: any;
     menuIsOpen: boolean;
 }
-export default class Header extends React.Component<{}, IHeaderState> {
+export default class Header extends React.Component<{ inLoginScreen: boolean }, IHeaderState> {
     constructor(props: any) {
         super(props);
         this.state = {
@@ -36,6 +36,7 @@ export default class Header extends React.Component<{}, IHeaderState> {
         history.push("/login")
     };
     render() {
+        const { inLoginScreen } = this.props;
         return (
             <AppBar className={`header-container`} position="static">
                 <Toolbar>
@@ -54,9 +55,9 @@ export default class Header extends React.Component<{}, IHeaderState> {
                     </Button>}
                     {localStorage.getItem('loggedIn') !== "1" && <Button
                         color="inherit"
-                        onClick={() => { history.push("/login") }}
+                        onClick={() => { history.push(inLoginScreen ? "/register" : "/login") }}
                     >
-                        Đăng nhập
+                        {inLoginScreen ? `Đăng ký` : `Đăng nhập`}
                     </Button>}
                 </Toolbar>
                 <Menu

@@ -2,7 +2,7 @@ import axios from "axios";
 import queryString from "querystring";
 
 const API = axios.create({
-    baseURL: process.env.REACT_APP_BASE_API_URL,
+    baseURL: "http://localhost:8000/api",
     headers: {
         'content-type': 'application/json',
     },

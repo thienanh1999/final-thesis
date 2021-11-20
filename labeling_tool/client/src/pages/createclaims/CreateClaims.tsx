@@ -68,7 +68,7 @@ class CreateClaims extends React.Component<ICreateClaimsProps, ICreateClaimsStat
                 constant_score: {
                     filter: {
                         term: {
-                            _seq_no: 5127
+                            _seq_no: this.state.currentSeqNo
                         }
                     }
                 }
@@ -79,7 +79,7 @@ class CreateClaims extends React.Component<ICreateClaimsProps, ICreateClaimsStat
             "Content-Type": "application/json"
         }
         axios.post(
-            "http://fimovm:9200/articles_covid19/_search?filter_path=hits.hits._source",
+            "http://52.221.198.189:9200/articles_covid19/_search?filter_path=hits.hits._source",
             reqBody,
             { headers }
         ).then((res: any) => {
@@ -137,7 +137,7 @@ class CreateClaims extends React.Component<ICreateClaimsProps, ICreateClaimsStat
         return returnVal;
     }
     render() {
-        const { searchContent, searchResult, currentTab, highlighted, type3DropdownValue } = this.state;
+        const { searchContent, searchResult, currentTab, highlighted, type3DropdownValue, isOdd } = this.state;
         const { showTopLoading, hideTopLoading } = this.props;
         return (
             <Box
@@ -180,22 +180,66 @@ class CreateClaims extends React.Component<ICreateClaimsProps, ICreateClaimsStat
                                 variant="contained"
                                 sx={{ mr: 1 }}
                                 onClick={() => {
-                                    showTopLoading!();
-                                    axios
-                                        .get("http://fimovm:9200/articles_covid19/_search", {
-                                            data: {
-                                                query: {
-                                                    query_string: {
-                                                        query: searchContent
+                                    this.props.showTopLoading!();
+                                    const reqBody = {
+                                        query: {
+                                            constant_score: {
+                                                filter: {
+                                                    term: {
+                                                        _seq_no: this.state.currentSeqNo - 1
                                                     }
                                                 }
                                             }
-                                        })
-                                        .then(res => {
-                                            this.setState({ searchResult: JSON.stringify(res, null, 4) })
-                                        })
-                                        .finally(() => hideTopLoading!())
-                                }}
+
+                                        }
+                                    };
+                                    const headers = {
+                                        "Content-Type": "application/json"
+                                    }
+                                    axios.post(
+                                        "http://52.221.198.189:9200/articles_covid19/_search?filter_path=hits.hits._source",
+                                        reqBody,
+                                        { headers }
+                                    ).then((res: any) => {
+                                        console.log(res);
+                                        if (
+                                            res &&
+                                            res.data &&
+                                            res.data.hits &&
+                                            res.data.hits.hits &&
+                                            Array.isArray(res.data.hits.hits) &&
+                                            res.data.hits.hits.length > 0
+                                        ) {
+                                            console.log(res);
+                                            this.setState({ currentArticle: res.data.hits.hits[this.state.isOdd ? 0 : 1]._source });
+                                            if (
+                                                res.data.hits.hits[this.state.isOdd ? 0 : 1]._source &&
+                                                res.data.hits.hits[this.state.isOdd ? 0 : 1]._source.order &&
+                                                Array.isArray(res.data.hits.hits[this.state.isOdd ? 0 : 1]._source.order) &&
+                                                res.data.hits.hits[this.state.isOdd ? 0 : 1]._source.order.length > 3
+                                            ) {
+                                                let randomNum = 0;
+                                                const orders = res.data.hits.hits[this.state.isOdd ? 0 : 1]._source.order;
+                                                if (orders.length > 8)
+                                                    if (res.data.hits.hits[this.state.isOdd ? 0 : 1]._source.order.includes("table_0")) {
+                                                        randomNum = Math.floor(Math.random() * (orders.length - 6)) + 1;
+                                                    } else {
+                                                        randomNum = Math.floor(Math.random() * (orders.length - 4));
+                                                    }
+                                                this.setState({
+                                                    highlighted: [
+                                                        randomNum,
+                                                        randomNum + 1,
+                                                        randomNum + 2,
+                                                        randomNum + 3,
+                                                    ]
+                                                })
+                                            }
+                                        }
+                                    }).finally(() => this.props.hideTopLoading!());
+                                    this.setState({ currentSeqNo: this.state.currentSeqNo - 1 });
+                                }
+                                }
                             >
                                 Quay lại
                             </Button>
@@ -203,22 +247,66 @@ class CreateClaims extends React.Component<ICreateClaimsProps, ICreateClaimsStat
                                 className={`bt-previous`}
                                 variant="contained"
                                 onClick={() => {
-                                    showTopLoading!();
-                                    axios
-                                        .get("http://fimovm:9200/articles_covid19/_search", {
-                                            data: {
-                                                query: {
-                                                    query_string: {
-                                                        query: searchContent
+                                    this.props.showTopLoading!();
+                                    const reqBody = {
+                                        query: {
+                                            constant_score: {
+                                                filter: {
+                                                    term: {
+                                                        _seq_no: this.state.currentSeqNo + 1
                                                     }
                                                 }
                                             }
-                                        })
-                                        .then(res => {
-                                            this.setState({ searchResult: JSON.stringify(res, null, 4) })
-                                        })
-                                        .finally(() => hideTopLoading!())
-                                }}
+
+                                        }
+                                    };
+                                    const headers = {
+                                        "Content-Type": "application/json"
+                                    }
+                                    axios.post(
+                                        "http://52.221.198.189:9200/articles_covid19/_search?filter_path=hits.hits._source",
+                                        reqBody,
+                                        { headers }
+                                    ).then((res: any) => {
+                                        console.log(res);
+                                        if (
+                                            res &&
+                                            res.data &&
+                                            res.data.hits &&
+                                            res.data.hits.hits &&
+                                            Array.isArray(res.data.hits.hits) &&
+                                            res.data.hits.hits.length > 0
+                                        ) {
+                                            console.log(res);
+                                            this.setState({ currentArticle: res.data.hits.hits[this.state.isOdd ? 0 : 1]._source });
+                                            if (
+                                                res.data.hits.hits[this.state.isOdd ? 0 : 1]._source &&
+                                                res.data.hits.hits[this.state.isOdd ? 0 : 1]._source.order &&
+                                                Array.isArray(res.data.hits.hits[this.state.isOdd ? 0 : 1]._source.order) &&
+                                                res.data.hits.hits[this.state.isOdd ? 0 : 1]._source.order.length > 3
+                                            ) {
+                                                let randomNum = 0;
+                                                const orders = res.data.hits.hits[this.state.isOdd ? 0 : 1]._source.order;
+                                                if (orders.length > 8)
+                                                    if (res.data.hits.hits[this.state.isOdd ? 0 : 1]._source.order.includes("table_0")) {
+                                                        randomNum = Math.floor(Math.random() * (orders.length - 6)) + 1;
+                                                    } else {
+                                                        randomNum = Math.floor(Math.random() * (orders.length - 4));
+                                                    }
+                                                this.setState({
+                                                    highlighted: [
+                                                        randomNum,
+                                                        randomNum + 1,
+                                                        randomNum + 2,
+                                                        randomNum + 3,
+                                                    ]
+                                                })
+                                            }
+                                        }
+                                    }).finally(() => this.props.hideTopLoading!());
+                                    this.setState({ currentSeqNo: this.state.currentSeqNo + 1 });
+                                }
+                                }
                             >
                                 Tiếp tục
                             </Button>
@@ -278,7 +366,7 @@ class CreateClaims extends React.Component<ICreateClaimsProps, ICreateClaimsStat
                                 sx={{
                                     width: "60vw",
                                     mt: 2,
-                                    mb: 1,
+                                    mb: 2,
                                 }}
                                 className={`tf-search`}
                                 id={`tf-search`}
@@ -313,6 +401,25 @@ class CreateClaims extends React.Component<ICreateClaimsProps, ICreateClaimsStat
                                     <MenuItem value={4}>Thay thế đại từ</MenuItem>
                                 </Select>
                             </FormControl>
+                            <Button
+                                className={`bt-submit`}
+                                sx={{ mr: 1 }}
+                                variant="contained"
+                                onClick={() => {
+                                    showTopLoading!();
+                                }}
+                            >
+                                Nộp
+                            </Button>
+                            <Button
+                                className={`bt-submit`}
+                                variant="contained"
+                                onClick={() => {
+                                    showTopLoading!();
+                                }}
+                            >
+                                Bỏ qua
+                            </Button>
                         </TabPanel>
                         <TabPanel value="2">
                             <TextField
@@ -335,7 +442,7 @@ class CreateClaims extends React.Component<ICreateClaimsProps, ICreateClaimsStat
                                 onClick={() => {
                                     showTopLoading!();
                                     axios
-                                        .get("http://fimovm:9200/articles_covid19/_search", {
+                                        .post("http://52.221.198.189:9200/articles_covid19/_search", {
                                             data: {
                                                 query: {
                                                     query_string: {
@@ -358,7 +465,7 @@ class CreateClaims extends React.Component<ICreateClaimsProps, ICreateClaimsStat
                         </TabPanel>
                     </TabContext>
                 </Box>
-            </Box>
+            </Box >
         )
     }
 }

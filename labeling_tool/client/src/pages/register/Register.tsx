@@ -29,6 +29,8 @@ interface IRegisterState {
     emailErrMsg: string;
     passwordErrMsg: string;
     errMsg: string;
+    confirmPassword: string;
+    confirmPasswordErrMsg: string;
 }
 type IRegisterProps = IRegisterPropsFromDispatch;
 
@@ -43,10 +45,12 @@ class Register extends React.Component<IRegisterProps, IRegisterState> {
             errMsg: "",
             fName: "",
             fNameErrMsg: "",
+            confirmPassword: "",
+            confirmPasswordErrMsg: "",
         }
     }
     render() {
-        const { errMsg, emailErrMsg, passwordErrMsg, email, password } = this.state;
+        const { email, password, fName, confirmPassword, errMsg, confirmPasswordErrMsg } = this.state;
         return (
             <div className={`register-container`}>
                 <img src='/fimo-logo-300x97.png' alt='fimo-logo' />
@@ -69,6 +73,14 @@ class Register extends React.Component<IRegisterProps, IRegisterState> {
                     className={`tf-normal`}
                     id={`tf-full-name`}
                     label="Họ và tên"
+                    value={fName}
+                    onChange={(ev) => {
+                        this.setState({
+                            fName: ev.target.value,
+                            errMsg: "",
+                            fNameErrMsg: "",
+                        })
+                    }}
                     variant="outlined"
                 />
                 <TextField
@@ -83,6 +95,14 @@ class Register extends React.Component<IRegisterProps, IRegisterState> {
                     label="Mật khẩu"
                     type="password"
                     variant="outlined"
+                    value={password}
+                    onChange={(ev) => {
+                        this.setState({
+                            password: ev.target.value,
+                            errMsg: "",
+                            passwordErrMsg: "",
+                        })
+                    }}
                 />
                 <TextField
                     className={`tf-password`}
@@ -90,7 +110,18 @@ class Register extends React.Component<IRegisterProps, IRegisterState> {
                     label="Xác nhận mật khẩu"
                     type="password"
                     variant="outlined"
+                    value={confirmPassword}
+                    error={!!confirmPasswordErrMsg}
+                    helperText={confirmPasswordErrMsg}
+                    onChange={(ev) => {
+                        this.setState({
+                            confirmPassword: ev.target.value,
+                            errMsg: "",
+                            confirmPasswordErrMsg: "",
+                        })
+                    }}
                 />
+                {!!errMsg && <p style={{ color: "#d32f2f" }}>{errMsg}</p>}
                 <p>
                     Đã có tài khoản? <span
                         onClick={() => {
@@ -104,10 +135,28 @@ class Register extends React.Component<IRegisterProps, IRegisterState> {
                 <Button
                     className={`bt-login`}
                     variant="contained"
+                    onClick={() => {
+                        if (password !== confirmPassword) {
+                            this.setState({ confirmPasswordErrMsg: "Mật khẩu không trùng khớp, vui lòng kiểm tra lại!" })
+                        } else {
+                            this.props.showTopLoading!();
+                            userAPI.register(email, fName, password).then((res: any) => {
+                                console.log(res)
+                                if (res.data && res.data.result && res.data.result === 201) {
+                                    history.push("/login");
+                                    this.props.showSnackBar!("Chúc mừng! Bạn đã đăng ký thành công", 10000, SnackBarType.Success);
+                                } else {
+                                    this.setState({ errMsg: res.data.message });
+                                }
+                            }).catch((err: any) => {
+                                this.setState({ errMsg: err.message })
+                            }).finally(() => this.props.hideTopLoading!())
+                        }
+                    }}
                 >
                     Đăng ký tài khoản
                 </Button>
-            </div>
+            </div >
         )
     }
 }
