@@ -132,10 +132,11 @@ class FileUploadView(APIView):
                 for chunk in up_file.chunks():
                     new_file.write(chunk)
 
-            client = Elasticsearch('fimovm:9200')
-
+            client = Elasticsearch('52.221.198.189:9200', timeout=30)
+            client.indices.delete(
+                index=request.data['es_id'], ignore=[400, 404])
             client.indices.create(
-                index="hehehe",
+                index=request.data['es_id'],
                 body={
                     'settings': {
                         'number_of_shards': 2,
@@ -149,19 +150,28 @@ class FileUploadView(APIView):
             )
             json_file = open('/tmp/temp.json', 'r')
             data = json.load(json_file)
-            print('Indexing {}'.format('/tmp/temp.json'))
+            print(len(data))
+            print('Indexing {}'.format(request.data['es_id']))
             resp = helpers.bulk(
                 client,
                 data,
-                index="hehehe",
+                index=request.data['es_id'],
             )
             print("helpers.bulk() RESPONSE:", resp)
             print("helpers.bulk() RESPONSE:", json.dumps(resp, indent=4))
 
-            return Response("hehehe", status.HTTP_201_CREATED)
+            return Response({
+                'result': 201,
+                'message': "Tải lên dữ liệu thành công",
+                'logs': resp
+            }, status.HTTP_201_CREATED)
         except Exception as e:
             print(e)
-            return Response("heheh1e", status.HTTP_503_SERVICE_UNAVAILABLE)
+            return Response({
+                'result': 503,
+                'message': "Tải lên dữ liệu thất bại",
+                'logs': str(e)
+            }, status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
@@ -375,11 +385,11 @@ class ClaimViewSet(viewsets.ModelViewSet):
                 'detail': 'Document is not exist'
             })
         Claim.objects.create(project=project, document=document,
-                            type=1, content=request.data['claim_1'])
+                             type=1, content=request.data['claim_1'])
         Claim.objects.create(project=project, document=document,
-                            type=2, content=request.data['claim_2'])
+                             type=2, content=request.data['claim_2'])
         Claim.objects.create(project=project, document=document, type=3, sub_type=request.data['sub_type'],
-                            content=request.data['claim_3'])
+                             content=request.data['claim_3'])
         return Response({
             'result': 201
         })

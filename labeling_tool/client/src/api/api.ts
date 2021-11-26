@@ -2,7 +2,7 @@ import axios from "axios";
 import queryString from "querystring";
 
 const API = axios.create({
-    baseURL: "http://localhost:8000/api",
+    baseURL: "http://fimovm:8000/api",
     headers: {
         'content-type': 'application/json',
     },
