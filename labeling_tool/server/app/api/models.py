@@ -69,9 +69,10 @@ class ProjectMember(models.Model):
 
 
 class Document(models.Model):
-    es_id = models.IntegerField()
+    doc_id = models.IntegerField()
     project = models.ForeignKey(Project, on_delete=models.DO_NOTHING)
     is_processed = models.BooleanField(default=False)
+    uploader = models.ForeignKey(User, on_delete=models.DO_NOTHING)
 
     class Meta:
         db_table = "document"

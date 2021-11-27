@@ -1,4 +1,6 @@
 import json
+import os
+
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
 from django.http import JsonResponse
@@ -7,7 +9,7 @@ from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.decorators import action
+from rest_framework.decorators import action, parser_classes
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import *
 from .serializers import UserSerializer, UserLoginSerializer, ProjectSerializer, ProjectMemberSerializer, \
@@ -16,6 +18,7 @@ from django.conf import settings
 from .utils import *
 from rest_framework.parsers import MultiPartParser, FileUploadParser
 from elasticsearch import Elasticsearch, helpers
+from django.db import transaction
 
 # Create your views here.
 
@@ -157,6 +160,7 @@ class FileUploadView(APIView):
                 data,
                 index=request.data['es_id'],
             )
+            
             print("helpers.bulk() RESPONSE:", resp)
             print("helpers.bulk() RESPONSE:", json.dumps(resp, indent=4))
 
@@ -179,87 +183,86 @@ class ProjectViewSet(viewsets.ModelViewSet):
     serializer_class = ProjectSerializer
 
     @auth
+    @parser_classes([MultiPartParser])
+    @transaction.atomic
     def create(self, request):
         user = User.objects.filter(email=request.user).first()
         serializer = self.serializer_class(data=request.data)
-        if serializer.is_valid():
-            project = serializer.save(owner=user)
-            ProjectMember.objects.create(user=user, project=project)
+        project = self.queryset.filter(es_id=request.data['es_id']).first()
+
+        if project is not None:
             return Response({
-                'project_id': project.id,
-                'project_name': project.name,
-                'es_id': project.es_id,
-                'project_description': project.description,
-                'config': project.to_dict()['config'],
-                'project_owner': user.to_dict(),
-                'project_member': [user.to_dict()]
-            }, 201)
-        else:
+                'errors': 'es_id already exist'
+            }, status.HTTP_400_BAD_REQUEST)
+
+        try:
+            print("Received file ", request.FILES)
+            uploaded_file = request.FILES['file']
+            filename = '/tmp/' + request.data['es_id'] + '.json'
+            with open(filename, 'wb+') as new_file:
+                for chunk in uploaded_file.chunks():
+                    new_file.write(chunk)
+
+            client = Elasticsearch(settings.ELASTICSEARCH_SERVER, timeout=50)
+            client.indices.create(
+                index=request.data['es_id'],
+                body={
+                    'settings': {
+                        'number_of_shards': 2,
+                        'number_of_replicas': 2,
+                        'analysis': {
+                            'analyzer': "vi_analyzer"
+                        }
+                    }
+                },
+                ignore=400
+            )
+            json_file = open(filename, 'r')
+            data = json.load(json_file)
+            data_length = len(data)
+            os.remove(filename)
+            print('data length: ' + str(data_length))
+            print('Indexing {}'.format(request.data['es_id']))
+
+            resp = helpers.bulk(
+                client,
+                data,
+                index=request.data['es_id'],
+            )
+
+            print("helpers.bulk() RESPONSE:", json.dumps(resp, indent=4))
+            if (resp[0] == data_length):
+                # Index successfully
+                if serializer.is_valid():
+                    project = serializer.save(owner=user)
+                    ProjectMember.objects.create(user=user, project=project)
+                    documents = []
+                    for doc in data:
+                        document = Document.objects.filter(project=project, doc_id=doc['_id']).first()
+                        if document is None:
+                            documents.append(Document(project=project, doc_id=doc['_id'], uploader=user))
+                    Document.objects.bulk_create(documents)
+                    return Response(get_project_info(project.id), status.HTTP_201_CREATED)
+                else:
+                    return Response({
+                        'errors': serializer.errors
+                    }, status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
             return Response({
-                'errors': serializer.errors
-            }, 400)
+                'result': 503,
+                'message': "Tải lên dữ liệu thất bại",
+                'logs': str(e)
+            }, status.HTTP_503_SERVICE_UNAVAILABLE)
 
     @auth
     def retrieve(self, request, pk=None):
-        project = get_object_or_404(self.queryset, pk=pk)
-        project_members = ProjectMember.objects.filter(project=project)
-        member_data = []
-        for project_member in project_members:
-            member = User.objects.filter(
-                id=project_member.user.id).first().to_dict()
-            member_data.append(member)
-        total_document = Document.objects.filter(project=project).count()
-        highlighted_document = Document.objects.filter(
-            project=project, is_processed=True).count()
-        claims = Claim.objects.filter(project=project)
-        total_claim = claims.count()
-        claim_type_1 = claims.filter(type=1).count()
-        claim_type_2 = claims.filter(type=2).count()
-        claim_type_3 = claims.filter(type=3).count()
-        sub_type_1 = claims.filter(type=3, sub_type=1).count()
-        sub_type_2 = claims.filter(type=3, sub_type=2).count()
-        sub_type_3 = claims.filter(type=3, sub_type=3).count()
-        sub_type_4 = claims.filter(type=3, sub_type=4).count()
-        sub_type_5 = claims.filter(type=3, sub_type=5).count()
-        total_labeled = claims.filter(is_labeled=True).count()
-        total_skipped_labeled = claims.filter(
-            is_labeled=True, label='SKIPPED').count()
-        supported_claim = claims.filter(label='SUPPORTED').count()
-        refuted_claim = claims.filter(label='REFUTED').count()
-        nei_claim = claims.filter(label='NEI').count()
-        return Response({
-            'project_id': project.id,
-            'project_name': project.name,
-            'project_description': project.description,
-            'es_id': project.es_id,
-            'config': project.to_dict()['config'],
-            'project_owner': project.owner.to_dict(),
-            'project_member': member_data,
-            'document': {
-                'total': total_document,
-                'highlighted': highlighted_document
-            },
-            'claim': {
-                'total': total_claim,
-                'type_1': claim_type_1,
-                'type_2': claim_type_2,
-                'type_3': {
-                    'total': claim_type_3,
-                    'more_specific': sub_type_1,
-                    'generalization': sub_type_2,
-                    'negation': sub_type_3,
-                    'paraphrasing': sub_type_4,
-                    'entity_substitution': sub_type_5
-                }
-            },
-            'label': {
-                'total_verified_claim': total_labeled-total_skipped_labeled,
-                'total_not_verified_claim': total_claim-total_labeled,
-                'supported': supported_claim,
-                'refuted': refuted_claim,
-                'nei': nei_claim
-            }
-        }, 200)
+        project_info = get_project_info(pk)
+        if project_info is None:
+            return Response({
+                'errors': 'Project is not exists'
+            }, status.HTTP_404_NOT_FOUND)
+        else:
+            return Response(project_info, status.HTTP_200_OK)
 
     @auth
     def list(self, request):
@@ -272,6 +275,66 @@ class ProjectViewSet(viewsets.ModelViewSet):
             'count': len(projects),
             'projects': projects
         }, 200)
+
+    @action(methods=['post'], detail=False)
+    @is_project_member
+    @parser_classes([MultiPartParser])
+    @transaction.atomic
+    def upload_file(self, request):
+        project = self.queryset.filter(pk=request.data['project_id']).first()
+
+        try:
+            print("Received file ", request.FILES)
+            uploaded_file = request.FILES['file']
+            filename = '/tmp/' + project.es_id + '.json'
+            with open(filename, 'wb+') as new_file:
+                for chunk in uploaded_file.chunks():
+                    new_file.write(chunk)
+
+            client = Elasticsearch(settings.ELASTICSEARCH_SERVER, timeout=50)
+            client.indices.create(
+                index=project.es_id,
+                body={
+                    'settings': {
+                        'number_of_shards': 2,
+                        'number_of_replicas': 2,
+                        'analysis': {
+                            'analyzer': "vi_analyzer"
+                        }
+                    }
+                },
+                ignore=400
+            )
+            json_file = open(filename, 'r')
+            data = json.load(json_file)
+            data_length = len(data)
+            os.remove(filename)
+            print('data length: ' + str(data_length))
+            print('Indexing {}'.format(project.es_id))
+
+            resp = helpers.bulk(
+                client,
+                data,
+                index=project.es_id,
+            )
+
+            print("helpers.bulk() RESPONSE:", json.dumps(resp, indent=4))
+            if (resp[0] == data_length):
+                # Index successfully
+                documents = []
+                user = User.objects.filter(email=request.user).first()
+                for doc in data:
+                    document = Document.objects.filter(project=project, doc_id=doc['_id']).first()
+                    if document is None:
+                        documents.append(Document(project=project, doc_id=doc['_id'], uploader=user))
+                Document.objects.bulk_create(documents)
+                return Response(get_project_info(project.id), status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({
+                'result': 503,
+                'message': "Tải lên dữ liệu thất bại",
+                'logs': str(e)
+            }, status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
 class ProjectMemberViewSet(viewsets.ModelViewSet):
@@ -463,3 +526,67 @@ class EvidenceViewSet(viewsets.ModelViewSet):
         return Response({
             'result': 201
         })
+
+
+def get_project_info(project_id):
+    project = Project.objects.filter(id=project_id).first()
+    if project is None:
+        return None
+    project_members = ProjectMember.objects.filter(project=project)
+    member_data = []
+    for project_member in project_members:
+        member = User.objects.filter(
+            id=project_member.user.id).first().to_dict()
+        member_data.append(member)
+    total_document = Document.objects.filter(project=project).count()
+    highlighted_document = Document.objects.filter(
+        project=project, is_processed=True).count()
+    claims = Claim.objects.filter(project=project)
+    total_claim = claims.count()
+    claim_type_1 = claims.filter(type=1).count()
+    claim_type_2 = claims.filter(type=2).count()
+    claim_type_3 = claims.filter(type=3).count()
+    sub_type_1 = claims.filter(type=3, sub_type=1).count()
+    sub_type_2 = claims.filter(type=3, sub_type=2).count()
+    sub_type_3 = claims.filter(type=3, sub_type=3).count()
+    sub_type_4 = claims.filter(type=3, sub_type=4).count()
+    sub_type_5 = claims.filter(type=3, sub_type=5).count()
+    total_labeled = claims.filter(is_labeled=True).count()
+    total_skipped_labeled = claims.filter(
+        is_labeled=True, label='SKIPPED').count()
+    supported_claim = claims.filter(label='SUPPORTED').count()
+    refuted_claim = claims.filter(label='REFUTED').count()
+    nei_claim = claims.filter(label='NEI').count()
+    return {
+        'project_id': project.id,
+        'project_name': project.name,
+        'project_description': project.description,
+        'es_id': project.es_id,
+        'config': project.to_dict()['config'],
+        'project_owner': project.owner.to_dict(),
+        'project_member': member_data,
+        'document': {
+            'total': total_document,
+            'processed': highlighted_document
+        },
+        'claim': {
+            'total': total_claim,
+            'type_1': claim_type_1,
+            'type_2': claim_type_2,
+            'type_3': {
+                'total': claim_type_3,
+                'more_specific': sub_type_1,
+                'generalization': sub_type_2,
+                'negation': sub_type_3,
+                'paraphrasing': sub_type_4,
+                'entity_substitution': sub_type_5
+            }
+        },
+        'label': {
+            'total_verified_claim': total_labeled - total_skipped_labeled,
+            'total_not_verified_claim': total_claim - total_labeled,
+            'supported': supported_claim,
+            'refuted': refuted_claim,
+            'nei': nei_claim
+        }
+    }
