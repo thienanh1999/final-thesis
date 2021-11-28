@@ -1,5 +1,6 @@
 import json
 import os
+import random
 
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
@@ -19,6 +20,7 @@ from .utils import *
 from rest_framework.parsers import MultiPartParser, FileUploadParser
 from elasticsearch import Elasticsearch, helpers
 from django.db import transaction
+import requests
 
 # Create your views here.
 
@@ -380,27 +382,6 @@ class ProjectMemberViewSet(viewsets.ModelViewSet):
         return Response({}, 201)
 
 
-class DocumentViewSet(viewsets.ModelViewSet):
-    queryset = Document.objects.all()
-
-    @is_project_member
-    def create(self, request):
-        project = Project.objects.filter(id=request.data['project_id']).first()
-        n_document = request.data['n_document']
-        max_document_id = self.queryset.filter(
-            project=project).order_by('es_id').reverse().first()
-        if max_document_id is None:
-            max_document_id = 0
-        else:
-            max_document_id = max_document_id.es_id
-        result = []
-        for i in range(max_document_id+1, n_document+1):
-            result.append(i)
-            Document.objects.create(
-                project=project, es_id=i, is_processed=False)
-        return Response({'created id': result}, 201)
-
-
 class ClaimViewSet(viewsets.ModelViewSet):
     queryset = Claim.objects.all()
     serializer_class = ClaimSerializer
@@ -409,22 +390,108 @@ class ClaimViewSet(viewsets.ModelViewSet):
     @is_project_member
     def highlight(self, request, pk=None):
         project = Project.objects.filter(id=request.data['project_id']).first()
-        document = Document.objects.filter(project=project).first()
+        query_set = Document.objects.filter(project=project, is_processed=False)
+        document = query_set[random.randint(0, query_set.count()-1)]
         if document is None:
             return Response({
-                'detail': 'There is no document left'
-            }, 400)
+                'errors': 'There is no document left'
+            }, status.HTTP_400_BAD_REQUEST)
         else:
-            # TODO: get document data from es with offset = document.id
-            document.is_highlighted = True
-            document.save()
-            # TODO: get highlight list
-            return Response({
-                'result': 200,
-                'es_id': document.es_id,
-                'highlight': ["sentence0", "sentence1", "sentence2", "sentence3"],
-                'document_id': document.id
-            })
+            try:
+                # Get Config and Document Data
+                path = 'http://{}/{}/_doc/{}'.format(settings.ELASTICSEARCH_SERVER, project.es_id, document.doc_id)
+                document_data = requests.get(path).json()
+                order = document_data['_source']['order']
+                seq_num = project.num_sequence_highlight
+                min_row = project.min_table_row_highlight
+                max_row = project.max_table_row_highlight
+
+                # Check if highlight table or sentences
+                document_has_table = False
+                tables = []
+                for item in order:
+                    if item[0:5] == 'table':
+                        table = document_data['_source'][item]
+                        if min_row <= len(table) <= max_row:
+                            document_has_table = True
+                            tables.append(item)
+                get_table = False
+                if document_has_table and min_row <= max_row and max_row > 0:
+                    get_table = random.choice([True, False])
+
+                # Get Highlight List
+                highlight = []
+                if get_table:
+                    # Add table to highlight list
+                    highlight.append(random.choice(tables))
+                else:
+                    # Add sentences to highlight list
+                    count = 0
+                    while len(highlight) < seq_num:
+                        count += 1
+                        # Too lazy :>
+                        if count == 99:
+                            highlight = []
+                            break
+                        random_index = random.randint(0, len(order) - 1 - seq_num)
+                        # Check seq_num sentences from random sentence
+                        if order[random_index][0:8] == 'sentence':
+                            highlight = [order[random_index]]
+                            for i in range(1, seq_num):
+                                if order[i + random_index][0:8] == 'sentence':
+                                    # Is sentence -> add to highlight list
+                                    highlight.append(order[i + random_index])
+                                else:
+                                    # Clear highlight list and start again
+                                    highlight = []
+                                    break
+
+                # Add sentence, table_data, cells in highlight list to databases
+                sentences = []
+                cells = []
+                if len(highlight) > 0:
+                    for item in highlight:
+                        if item[0:5] == 'table':
+                            table = TableData.objects.create(
+                                document=document,
+                                id_in_document=int(item[6:]),
+                                is_highlighted=True
+                            )
+                            table_data = document_data[item]
+                            for row in range(0, len(table_data) - 1):
+                                row_data = table_data[row]
+                                for column in range(0, len(row_data) - 1):
+                                    cell = row_data[column]
+                                    cells.append(Cell(
+                                        row=row,
+                                        column=column,
+                                        is_header=cell['is_header'] or False,
+                                        table_data=table,
+                                        context='{}_{}_{}'.format(document.doc_id, item, cell['id'])
+                                    ))
+                        else:
+                            sentences.append(Sentence(
+                                document=document,
+                                is_highlighted=True,
+                                id_in_document=int(item[9:]),
+                                context='{}_{}'.format(document.doc_id, item)
+                            ))
+                Sentence.objects.bulk_create(sentences)
+                Cell.objects.bulk_create(cells)
+
+                # Return data
+                document.is_processed = True
+                document.save()
+                return Response({
+                    'es_id': document.doc_id,
+                    'highlight': highlight,
+                    'document_id': document.id,
+                    'document_data': document_data['_source']
+                }, status.HTTP_200_OK)
+            except Exception as e:
+                return Response({
+                    'errors': str(e)
+                }, status.HTTP_400_BAD_REQUEST)
 
     def create(self, request):
         user = User.objects.filter(email=request.user).first()
