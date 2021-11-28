@@ -493,36 +493,27 @@ class ClaimViewSet(viewsets.ModelViewSet):
                     'errors': str(e)
                 }, status.HTTP_400_BAD_REQUEST)
 
+    @is_project_member
     def create(self, request):
         user = User.objects.filter(email=request.user).first()
-        if user is None:
-            return Response({
-                'result': 401
-            })
-        check_project_member = is_user_in_project(
-            user.id, request.data['project_id'])
-        if not check_project_member['result']:
-            return Response({
-                'result': 404,
-                'detail': check_project_member['detail']
-            })
         project = Project.objects.filter(id=request.data['project_id']).first()
-        document = Document.objects.filter(
-            id=request.data['document_id']).first()
+        document = Document.objects.filter(id=request.data['document_id'], is_processed=True, project=project).first()
         if document is None:
             return Response({
-                'result': 404,
-                'detail': 'Document is not exist'
-            })
-        Claim.objects.create(project=project, document=document,
-                             type=1, content=request.data['claim_1'])
-        Claim.objects.create(project=project, document=document,
-                             type=2, content=request.data['claim_2'])
-        Claim.objects.create(project=project, document=document, type=3, sub_type=request.data['sub_type'],
-                             content=request.data['claim_3'])
+                'errors': 'Document is not exist'
+            }, status.HTTP_404_NOT_FOUND)
+        claim_1 = Claim.objects.create(project=project, document=document,
+                             type=1, content=request.data['claim_1'], created_by=user)
+        claim_2 = Claim.objects.create(project=project, document=document,
+                             type=2, content=request.data['claim_2'], created_by=user)
+        claim_3 = Claim.objects.create(project=project, document=document,
+                             type=3, sub_type=request.data['sub_type'],
+                             content=request.data['claim_3'], created_by=user)
         return Response({
-            'result': 201
-        })
+            'claim_1': claim_1.to_dict(),
+            'claim_2': claim_2.to_dict(),
+            'claim_3': claim_3.to_dict()
+        }, status.HTTP_201_CREATED)
 
 
 class EvidenceViewSet(viewsets.ModelViewSet):

@@ -117,10 +117,23 @@ class Claim(models.Model):
     is_labeled = models.BooleanField(default=False)
     label = models.CharField(max_length=20, default='')
     created_by = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name='+')
-    annotated_by = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name='+')
+    annotated_by = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name='+', null=True, default=None)
 
     class Meta:
         db_table = "claim"
+
+    def to_dict(self):
+        return {
+            'project_id': self.project.id,
+            'document_id': self.document.id,
+            'type': self.type,
+            'sub_type': self.sub_type,
+            'content': self.content,
+            'is_labeled': self.is_labeled,
+            'label': self.label,
+            'created_by': self.created_by.to_dict(),
+            'annotated_by': self.annotated_by.to_dict() if self.annotated_by is not None else None
+        }
 
 
 class Evidence(models.Model):
