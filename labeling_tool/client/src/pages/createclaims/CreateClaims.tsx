@@ -14,6 +14,7 @@ import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
 import Select, { SelectChangeEvent } from '@mui/material/Select';
+import SearchTab from "./SearchTab";
 
 interface ICreateClaimsUrlParams {
     prjId?: string;
@@ -53,7 +54,7 @@ class CreateClaims extends React.Component<ICreateClaimsProps, ICreateClaimsStat
         super(props);
         this.state = {
             currentArticle: {},
-            currentTab: "1",
+            currentTab: "2",
             searchContent: "",
             searchResult: "",
             currentSeqNo: 5432,
@@ -83,7 +84,6 @@ class CreateClaims extends React.Component<ICreateClaimsProps, ICreateClaimsStat
             reqBody,
             { headers }
         ).then((res: any) => {
-            console.log(res);
             if (
                 res &&
                 res.data &&
@@ -92,7 +92,6 @@ class CreateClaims extends React.Component<ICreateClaimsProps, ICreateClaimsStat
                 Array.isArray(res.data.hits.hits) &&
                 res.data.hits.hits.length > 0
             ) {
-                console.log(res);
                 this.setState({ currentArticle: res.data.hits.hits[this.state.isOdd ? 0 : 1]._source });
                 if (
                     res.data.hits.hits[this.state.isOdd ? 0 : 1]._source &&
@@ -133,7 +132,6 @@ class CreateClaims extends React.Component<ICreateClaimsProps, ICreateClaimsStat
                     returnVal.push(currentArticle[fieldName]);
             });
         }
-        console.log(currentArticle)
         return returnVal;
     }
     render() {
@@ -201,7 +199,6 @@ class CreateClaims extends React.Component<ICreateClaimsProps, ICreateClaimsStat
                                         reqBody,
                                         { headers }
                                     ).then((res: any) => {
-                                        console.log(res);
                                         if (
                                             res &&
                                             res.data &&
@@ -210,7 +207,6 @@ class CreateClaims extends React.Component<ICreateClaimsProps, ICreateClaimsStat
                                             Array.isArray(res.data.hits.hits) &&
                                             res.data.hits.hits.length > 0
                                         ) {
-                                            console.log(res);
                                             this.setState({ currentArticle: res.data.hits.hits[this.state.isOdd ? 0 : 1]._source });
                                             if (
                                                 res.data.hits.hits[this.state.isOdd ? 0 : 1]._source &&
@@ -268,7 +264,6 @@ class CreateClaims extends React.Component<ICreateClaimsProps, ICreateClaimsStat
                                         reqBody,
                                         { headers }
                                     ).then((res: any) => {
-                                        console.log(res);
                                         if (
                                             res &&
                                             res.data &&
@@ -277,7 +272,6 @@ class CreateClaims extends React.Component<ICreateClaimsProps, ICreateClaimsStat
                                             Array.isArray(res.data.hits.hits) &&
                                             res.data.hits.hits.length > 0
                                         ) {
-                                            console.log(res);
                                             this.setState({ currentArticle: res.data.hits.hits[this.state.isOdd ? 0 : 1]._source });
                                             if (
                                                 res.data.hits.hits[this.state.isOdd ? 0 : 1]._source &&
@@ -422,46 +416,7 @@ class CreateClaims extends React.Component<ICreateClaimsProps, ICreateClaimsStat
                             </Button>
                         </TabPanel>
                         <TabPanel value="2">
-                            <TextField
-                                sx={{ width: "50vw" }}
-                                className={`tf-search`}
-                                id={`tf-search`}
-                                label="Tìm trong tiêu đề"
-                                value={searchContent}
-                                // error={!!passwordErrMsg}
-                                // helperText={passwordErrMsg}
-                                onChange={(ev) => {
-                                    this.setState({
-                                        searchContent: ev.target.value,
-                                    })
-                                }}
-                            />
-                            <Button
-                                className={`bt-search`}
-                                variant="contained"
-                                onClick={() => {
-                                    showTopLoading!();
-                                    axios
-                                        .post("http://52.221.198.189:9200/articles_covid19/_search", {
-                                            data: {
-                                                query: {
-                                                    query_string: {
-                                                        query: searchContent
-                                                    }
-                                                }
-                                            }
-                                        })
-                                        .then(res => {
-                                            this.setState({ searchResult: JSON.stringify(res, null, 4) })
-                                        })
-                                        .finally(() => hideTopLoading!())
-                                }}
-                            >
-                                Tìm kiếm
-                            </Button>
-                            <p style={{ whiteSpace: "pre" }}>
-                                {searchResult}
-                            </p>
+                            <SearchTab />
                         </TabPanel>
                     </TabContext>
                 </Box>
@@ -469,4 +424,5 @@ class CreateClaims extends React.Component<ICreateClaimsProps, ICreateClaimsStat
         )
     }
 }
+
 export default connect(null, mapDispatcherToProps)(CreateClaims);

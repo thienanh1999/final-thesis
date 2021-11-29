@@ -4,16 +4,22 @@
     .div-upload {
         .pp-status {
             display: inline-block;
-            width: 130px;
+            width: 170px;
             margin-left: 20px;
             line-height: 40px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0.5px 10px;
+            text-align: initial;
         }
         .bt-upload {
+            vertical-align: top;
             line-height: 30px;
-            width: 250px;
+            width: 190px;
         }
     }
     .bt-create {
+        display: inline-block;
         line-height: 30px;
         margin-top: 50px;
         width: 400px;

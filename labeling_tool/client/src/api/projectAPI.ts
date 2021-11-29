@@ -15,19 +15,31 @@ class ProjectAPI {
         pK: string,
         pB1: string,
         pNoSeqHL: string,
-        pTabRowHL: string,
+        pMinTabRowHL: string,
+        pMaxTabRowHL: string,
         pEsId: string,
+        pFile: any,
     ) => {
+        let formData = new FormData();
+        formData.append("file", pFile);
+        formData.append("name", pName);
+        formData.append("description", pDesc);
+        formData.append("k", pK);
+        formData.append("b1", pB1);
+        formData.append("num_sequence_highlight", pNoSeqHL);
+        formData.append("min_table_row_highlight", pMinTabRowHL);
+        formData.append("max_table_row_highlight", pMaxTabRowHL);
+        formData.append("es_id", pEsId);
         const url = "/project/"
-        return API.post(url, {
-            name: pName,
-            description: pDesc,
-            k: pK,
-            b1: pB1,
-            num_sequence_highlight: pNoSeqHL,
-            max_table_row_highlight: pTabRowHL,
-            es_id: pEsId,
-        })
+        return API.post(
+            url,
+            formData,
+            {
+                headers: {
+                    "Content-Type": "multipart/form-data",
+                }
+            }
+        )
     }
 }
 
