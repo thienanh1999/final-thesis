@@ -7,6 +7,7 @@ articles = json.load(json_file)
 sentence_splitter = r"\. (?!Hồ Chí Minh)(?!HCM)|\:|\;"
 
 article_dictionaries = []
+count = 0
 for article in articles:
     content = str(article['sapo']) + ' ' + ' '.join(article['content'])
     sentences = re.split(sentence_splitter, content)
@@ -14,6 +15,8 @@ for article in articles:
     article_dict['time'] = article['published_time']
     article_dict['title'] = article['title']
     article_dict['order'] = []
+    article_dict['_id'] = count
+    count += 1
 
     sentence_idx = 0
     for sentence in sentences:

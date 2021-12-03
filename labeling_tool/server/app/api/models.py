@@ -28,7 +28,7 @@ class User(AbstractUser):
 
 
 class Project(models.Model):
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100)
     description = models.CharField(max_length=1000)
     owner = models.ForeignKey(User, on_delete=models.DO_NOTHING)
     k = models.FloatField(null=False, default=0.75)
@@ -94,7 +94,7 @@ class TableData(models.Model):
     is_highlighted = models.BooleanField(default=False)
 
     class Meta:
-        db_table = "tableData"
+        db_table = "table_data"
 
 
 class Cell(models.Model):
@@ -138,8 +138,8 @@ class Claim(models.Model):
 
 class Evidence(models.Model):
     claim = models.ForeignKey(Claim, on_delete=models.DO_NOTHING)
-    sentence = models.ForeignKey(Sentence, on_delete=models.DO_NOTHING, default=None)
-    cell = models.ForeignKey(Cell, on_delete=models.DO_NOTHING, default=None)
+    sentence = models.ForeignKey(Sentence, on_delete=models.DO_NOTHING, default=None, null=True)
+    cell = models.ForeignKey(Cell, on_delete=models.DO_NOTHING, default=None, null=True)
 
     class Meta:
         db_table = "evidence"
@@ -147,10 +147,12 @@ class Evidence(models.Model):
 
 class Annotator(models.Model):
     claim = models.ForeignKey(Claim, on_delete=models.DO_NOTHING)
+    time = models.FloatField(null=False, default=0)
+    value = models.TextField(default="")
     operation = models.TextField(max_length=50)
-    document = models.ForeignKey(Document, on_delete=models.DO_NOTHING, default=None)
-    sentence = models.ForeignKey(Sentence, on_delete=models.DO_NOTHING, default=None)
-    cell = models.ForeignKey(Cell, on_delete=models.DO_NOTHING, default=None)
+    document = models.ForeignKey(Document, on_delete=models.DO_NOTHING, default=None, null=True)
+    sentence = models.ForeignKey(Sentence, on_delete=models.DO_NOTHING, default=None, null=True)
+    cell = models.ForeignKey(Cell, on_delete=models.DO_NOTHING, default=None, null=True)
 
     class Meta:
         db_table = "annotator"
