@@ -386,7 +386,7 @@ class ClaimViewSet(viewsets.ModelViewSet):
     queryset = Claim.objects.all()
     serializer_class = ClaimSerializer
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['post'])
     @is_project_member
     def highlight(self, request, pk=None):
         project = Project.objects.filter(id=request.data['project_id']).first()
