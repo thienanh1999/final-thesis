@@ -12,6 +12,7 @@ import { TabContext, TabList, TabPanel } from "@mui/lab";
 import DeleteIcon from '@mui/icons-material/Delete';
 import TextSnippetIcon from '@mui/icons-material/TextSnippet';
 import projectAPI from "../../api/projectAPI";
+import history from "../../history";
 
 
 interface IAnnotateClaimsUrlParams {
@@ -90,7 +91,7 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
         }
     }
 
-    public componentDidMount() {
+    private getNewClaim = () => {
         const prjId = this.props.match.params.prjid;
         const { showTopLoading, showSnackBar, hideTopLoading } = this.props;
         showTopLoading!();
@@ -101,21 +102,26 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
                     claimContent: !!res.data.claim ? res.data.claim : "",
                 });
             } else {
+                history.push("/");
                 showSnackBar!(
-                    "Tải dữ liệu thất bại!",
+                    "Tất cả mệnh đề đều đã được xử lý! Bạn vui lòng tạo thêm mệnh đề để gán nhãn nha!",
                     10000,
-                    SnackBarType.Success
+                    SnackBarType.Info
                 );
             }
         }).catch(_ => {
+            history.push("/");
             showSnackBar!(
-                "Tải dữ liệu thất bại!",
+                "Tất cả mệnh đề đều đã được xử lý! Bạn vui lòng tạo thêm mệnh đề để gán nhãn nha!",
                 10000,
-                SnackBarType.Success
+                SnackBarType.Info
             );
         }).finally(() => {
             hideTopLoading!();
         })
+    }
+    public componentDidMount() {
+        this.getNewClaim();
     }
     public render() {
         return <Stack direction={{ xs: 'column', sm: 'column', md: 'row', lg: 'row' }} sx={{ p: 2 }}>
@@ -389,12 +395,30 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
                 color="success"
                 sx={{ minWidth: 200 }}
                 onClick={() => {
-
+                    this.getNewClaim();
+                    this.props.showSnackBar!(
+                        "Gán nhãn thành công!",
+                        10000,
+                        SnackBarType.Success
+                    );
                 }}
             >
                 Gán nhãn
             </Button>
-            <Button variant="contained" sx={{ minWidth: 200 }}>Bỏ qua</Button>
+            <Button
+                onClick={() => {
+                    this.getNewClaim();
+                    this.props.showSnackBar!(
+                        "Đã tải mệnh đề khác!",
+                        10000,
+                        SnackBarType.Info
+                    );
+                }}
+                variant="contained"
+                sx={{ minWidth: 200 }}
+            >
+                Bỏ qua
+            </Button>
         </Stack>
     }
 
