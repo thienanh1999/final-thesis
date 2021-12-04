@@ -28,7 +28,7 @@ class User(AbstractUser):
 
 
 class Project(models.Model):
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100)
     description = models.CharField(max_length=1000)
     owner = models.ForeignKey(User, on_delete=models.DO_NOTHING)
     k = models.FloatField(null=False, default=0.75)
@@ -69,9 +69,10 @@ class ProjectMember(models.Model):
 
 
 class Document(models.Model):
-    es_id = models.IntegerField()
+    doc_id = models.IntegerField()
     project = models.ForeignKey(Project, on_delete=models.DO_NOTHING)
     is_processed = models.BooleanField(default=False)
+    uploader = models.ForeignKey(User, on_delete=models.DO_NOTHING)
 
     class Meta:
         db_table = "document"
@@ -93,7 +94,7 @@ class TableData(models.Model):
     is_highlighted = models.BooleanField(default=False)
 
     class Meta:
-        db_table = "tableData"
+        db_table = "table_data"
 
 
 class Cell(models.Model):
@@ -116,16 +117,29 @@ class Claim(models.Model):
     is_labeled = models.BooleanField(default=False)
     label = models.CharField(max_length=20, default='')
     created_by = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name='+')
-    annotated_by = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name='+')
+    annotated_by = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name='+', null=True, default=None)
 
     class Meta:
         db_table = "claim"
 
+    def to_dict(self):
+        return {
+            'project_id': self.project.id,
+            'document_id': self.document.id,
+            'type': self.type,
+            'sub_type': self.sub_type,
+            'content': self.content,
+            'is_labeled': self.is_labeled,
+            'label': self.label,
+            'created_by': self.created_by.to_dict(),
+            'annotated_by': self.annotated_by.to_dict() if self.annotated_by is not None else None
+        }
+
 
 class Evidence(models.Model):
     claim = models.ForeignKey(Claim, on_delete=models.DO_NOTHING)
-    sentence = models.ForeignKey(Sentence, on_delete=models.DO_NOTHING, default=None)
-    cell = models.ForeignKey(Cell, on_delete=models.DO_NOTHING, default=None)
+    sentence = models.ForeignKey(Sentence, on_delete=models.DO_NOTHING, default=None, null=True)
+    cell = models.ForeignKey(Cell, on_delete=models.DO_NOTHING, default=None, null=True)
 
     class Meta:
         db_table = "evidence"
@@ -133,10 +147,12 @@ class Evidence(models.Model):
 
 class Annotator(models.Model):
     claim = models.ForeignKey(Claim, on_delete=models.DO_NOTHING)
+    time = models.FloatField(null=False, default=0)
+    value = models.TextField(default="")
     operation = models.TextField(max_length=50)
-    document = models.ForeignKey(Document, on_delete=models.DO_NOTHING, default=None)
-    sentence = models.ForeignKey(Sentence, on_delete=models.DO_NOTHING, default=None)
-    cell = models.ForeignKey(Cell, on_delete=models.DO_NOTHING, default=None)
+    document = models.ForeignKey(Document, on_delete=models.DO_NOTHING, default=None, null=True)
+    sentence = models.ForeignKey(Sentence, on_delete=models.DO_NOTHING, default=None, null=True)
+    cell = models.ForeignKey(Cell, on_delete=models.DO_NOTHING, default=None, null=True)
 
     class Meta:
         db_table = "annotator"
