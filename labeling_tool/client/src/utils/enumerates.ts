@@ -14,3 +14,9 @@ export enum Claim3Type {
     Paraphrasing = 3,
     EntitySubstitution = 4,
 }
+
+export enum LabelType {
+    Support,
+    Refute,
+    NotEnoughInfo,
+}

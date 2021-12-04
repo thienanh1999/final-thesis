@@ -1,6 +1,6 @@
 import { Claim3Type } from "../utils/enumerates";
 import API from "./api";
-
+import { LabelType } from "../utils/enumerates";
 class ProjectAPI {
     getAllProjects = () => {
         const url = '/project/';
@@ -70,6 +70,14 @@ class ProjectAPI {
             sub_type: c3Type,
         };
         return API.post(url, reqBody);
+    };
+    annotateClaim = (
+        projectId: number,
+        claimId: number,
+        label: LabelType
+
+    ) => {
+
     }
 }
 

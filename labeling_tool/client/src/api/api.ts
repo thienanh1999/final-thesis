@@ -3,7 +3,7 @@ import queryString from "querystring";
 import history from "../history";
 
 const API = axios.create({
-    baseURL: "http://fimovm:8000/api",
+    baseURL: "http://52.221.198.189:8000/api",
     headers: {
         'content-type': 'application/json',
     },

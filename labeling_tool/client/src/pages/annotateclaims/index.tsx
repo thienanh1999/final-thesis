@@ -4,7 +4,7 @@ import "./index.scss"
 import * as generalActions from "../../redux/general/actions";
 import * as snackBarActions from "../../redux/snackbar/actions";
 import { connect } from "react-redux";
-import { SearchType, SnackBarType } from "./../../utils/enumerates";
+import { LabelType, SearchType, SnackBarType } from "./../../utils/enumerates";
 import { RouteComponentProps } from "react-router";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import searchAPI from "../../api/searchAPI";
@@ -12,6 +12,8 @@ import { TabContext, TabList, TabPanel } from "@mui/lab";
 import DeleteIcon from '@mui/icons-material/Delete';
 import TextSnippetIcon from '@mui/icons-material/TextSnippet';
 import projectAPI from "../../api/projectAPI";
+
+
 interface IAnnotateClaimsUrlParams {
     prjid?: string;
     esid?: string;
@@ -54,12 +56,6 @@ interface IAnnotateClaimsState {
 enum EvidenceType {
     Sentence,
     TableCell
-}
-
-enum LabelType {
-    Support,
-    Refute,
-    NotEnoughInfo,
 }
 
 interface EvidenceItem {
@@ -388,7 +384,16 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
                     <MenuItem value={LabelType.NotEnoughInfo}>Not enough info</MenuItem>
                 </Select>
             </FormControl>
-            <Button variant="contained" color="success" sx={{ minWidth: 200 }}>Gán nhãn</Button>
+            <Button
+                variant="contained"
+                color="success"
+                sx={{ minWidth: 200 }}
+                onClick={() => {
+
+                }}
+            >
+                Gán nhãn
+            </Button>
             <Button variant="contained" sx={{ minWidth: 200 }}>Bỏ qua</Button>
         </Stack>
     }
@@ -471,12 +476,6 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
                         </React.Fragment>}
                     </TabPanel>
                 })}
-                <TabPanel sx={{ pt: 0, pb: 0, pr: 1, pl: 1 }} value="2">
-                    Chưa có dữ liệu
-                </TabPanel>
-                <TabPanel sx={{ pt: 0, pb: 0, pr: 1, pl: 1 }} value="3">
-                    Chưa có dữ liệu
-                </TabPanel>
             </TabContext>}
         </React.Fragment>
     }
