@@ -1,6 +1,6 @@
 import { Button, Paper, TextField, Typography } from "@mui/material";
 import React from "react";
-import "./CreateProject.scss"
+import "./index.scss"
 import * as generalActions from "../../redux/general/actions";
 import * as snackBarActions from "../../redux/snackbar/actions";
 import { SnackBarType } from "../../utils/enumerates";

@@ -1,0 +1,9 @@
+.tg-sentence {
+    cursor: pointer;
+    &:hover {
+        background: darkslateblue;
+        color: white;
+        border-radius: 7px;
+    }
+
+}

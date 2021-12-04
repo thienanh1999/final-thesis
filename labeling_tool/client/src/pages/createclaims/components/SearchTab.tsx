@@ -1,18 +1,24 @@
 import { Accordion, Button, FormControl, FormControlLabel, FormLabel, Radio, RadioGroup, TextField, Typography, AccordionSummary, AccordionDetails, Box, Slider, Stack } from "@mui/material";
-import axios from "axios";
 import React from "react";
 import { connect } from "react-redux";
-import { SnackBarType } from "../../utils/enumerates";
-import * as generalActions from "../../redux/general/actions";
-import * as snackBarActions from "../../redux/snackbar/actions";
+import { SearchType, SnackBarType } from "./../../../utils/enumerates";
+import * as generalActions from "./../../../redux/general/actions";
+import * as snackBarActions from "./../../../redux/snackbar/actions";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
-import "./SearchTab.scss";
+import "./../index.scss";
+import searchAPI from "../../../api/searchAPI";
 interface ISearchTabPropsFromDispatch {
     showTopLoading?: () => void;
     hideTopLoading?: () => void;
     showSnackBar?: (pMsg: string, pDuration: number, pType: SnackBarType) => void;
 }
+
+interface ISearchTabOwnProps {
+    esId?: string;
+}
+
+type ISearchTabProps = ISearchTabOwnProps & ISearchTabPropsFromDispatch;
 
 interface ISearchTabState {
     searchContent: string;
@@ -31,12 +37,8 @@ const mapDispatcherToProps = (dispatch: any): ISearchTabPropsFromDispatch => {
     }
 }
 
-enum SearchType {
-    SearchByTitle,
-    SearchAllFields,
-}
 
-class SearchTab extends React.Component<ISearchTabPropsFromDispatch, ISearchTabState> {
+class SearchTab extends React.Component<ISearchTabProps, ISearchTabState> {
     public constructor(props: any) {
         super(props);
         this.state = {
@@ -47,10 +49,6 @@ class SearchTab extends React.Component<ISearchTabPropsFromDispatch, ISearchTabS
             minScore: 25,
             showResCnt: false,
         }
-    }
-
-    private onSearchRangeRadioGroupChanged = (ev: any) => {
-        this.setState({ currentSearchType: ev.target.value });
     }
 
     public render() {
@@ -65,33 +63,10 @@ class SearchTab extends React.Component<ISearchTabPropsFromDispatch, ISearchTabS
         const {
             showTopLoading,
             hideTopLoading,
+            esId
         } = this.props;
-        const esReqBody = currentSearchType === SearchType.SearchAllFields ? {
-            query: {
-                function_score: {
-                    query: {
-                        query_string: {
-                            query: searchContent,
-                        },
-                    },
-                    min_score: minScore,
-                }
-            },
-            size: 10
-        } : {
-            query: {
-                function_score: {
-                    query: {
-                        match: {
-                            title: searchContent,
-                        },
-                    },
-                    min_score: minScore,
-                }
-            },
-            size: 10
-        };
-        const searchUrl = "http://52.221.198.189:9200/articles_covid19/_search";
+        const pMinScore = typeof this.state.minScore === 'number' ?
+            this.state.minScore : 0;
         return <Stack spacing={2}>
             <TextField
                 fullWidth
@@ -152,7 +127,13 @@ class SearchTab extends React.Component<ISearchTabPropsFromDispatch, ISearchTabS
                 onClick={() => {
                     if (!!searchContent) {
                         showTopLoading!();
-                        axios.post(searchUrl, esReqBody).then(res => {
+                        searchAPI.advanceSearch(
+                            esId!,
+                            searchContent,
+                            currentSearchType,
+                            pMinScore,
+                            0
+                        ).then(res => {
                             if (
                                 res &&
                                 res.data &&
@@ -213,6 +194,7 @@ class SearchTab extends React.Component<ISearchTabPropsFromDispatch, ISearchTabS
             })}
         </Stack>
     }
+
     private getArticleContent = (idx: number): string[] => {
         const { searchedArticles } = this.state;
         const returnVal: string[] = [];
@@ -221,6 +203,10 @@ class SearchTab extends React.Component<ISearchTabPropsFromDispatch, ISearchTabS
                 returnVal.push(searchedArticles[idx]._source[fieldName]);
         });
         return returnVal;
+    }
+
+    private onSearchRangeRadioGroupChanged = (ev: any) => {
+        this.setState({ currentSearchType: ev.target.value });
     }
 }
 export default connect(null, mapDispatcherToProps)(SearchTab);

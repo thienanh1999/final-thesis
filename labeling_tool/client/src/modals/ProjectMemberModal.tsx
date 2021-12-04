@@ -10,11 +10,11 @@ import Paper from '@mui/material/Paper';
 import userAPI from '../api/userAPI';
 import { CircularProgress } from '@mui/material';
 
-function not(a: readonly number[], b: readonly number[]) {
+function not(a: readonly string[], b: readonly string[]) {
     return a.filter((value) => b.indexOf(value) === -1);
 }
 
-function intersection(a: readonly number[], b: readonly number[]) {
+function intersection(a: readonly string[], b: readonly string[]) {
     return a.filter((value) => b.indexOf(value) !== -1);
 }
 
@@ -23,9 +23,9 @@ interface IProjectMemberModal {
 }
 
 export default function ProjectMemberModal(props: IProjectMemberModal) {
-    const [checked, setChecked] = useState<readonly number[]>([]);
-    const [left, setLeft] = useState<readonly number[]>([0, 1, 2, 3]);
-    const [right, setRight] = useState<readonly number[]>([4, 5, 6, 7]);
+    const [checked, setChecked] = useState<readonly string[]>([]);
+    const [left, setLeft] = useState<readonly string[]>(["Vũ Thiên Trung Hiếu", "Vũ Thị Thiên Hương", "Ngô Nhật Minh"]);
+    const [right, setRight] = useState<readonly string[]>(["Vũ Thị Thiên Anh"]);
     const [loading, setLoading] = useState<boolean>(false);
 
     const leftChecked = intersection(checked, left);
@@ -45,7 +45,7 @@ export default function ProjectMemberModal(props: IProjectMemberModal) {
     }, []);
 
 
-    const handleToggle = (value: number) => () => {
+    const handleToggle = (value: string) => () => {
         const currentIndex = checked.indexOf(value);
         const newChecked = [...checked];
 
@@ -80,10 +80,10 @@ export default function ProjectMemberModal(props: IProjectMemberModal) {
         setRight([]);
     };
 
-    const customList = (items: readonly number[]) => (
-        <Paper sx={{ width: 200, height: 230, overflow: 'auto' }}>
+    const customList = (items: readonly string[]) => (
+        <Paper sx={{ width: 400, height: 300, overflow: 'auto' }}>
             <List dense component="div" role="list">
-                {items.map((value: number) => {
+                {items.map((value: string) => {
                     const labelId = `transfer-list-item-${value}-label`;
 
                     return (
@@ -103,7 +103,7 @@ export default function ProjectMemberModal(props: IProjectMemberModal) {
                                     }}
                                 />
                             </ListItemIcon>
-                            <ListItemText id={labelId} primary={`List item ${value + 1}`} />
+                            <ListItemText id={labelId} primary={`${value}`} />
                         </ListItem>
                     );
                 })}
