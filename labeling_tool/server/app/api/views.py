@@ -518,7 +518,7 @@ class ClaimViewSet(viewsets.ModelViewSet):
 class EvidenceViewSet(viewsets.ModelViewSet):
     queryset = Evidence.objects.all()
 
-    @action(detail=False, methods=["get"])
+    @action(detail=False, methods=["post"])
     @is_project_member
     def get_claim(self, request, pk=None):
         project = Project.objects.filter(id=request.data['project_id']).first()
