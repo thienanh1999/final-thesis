@@ -1,4 +1,4 @@
-import "./ProjectDetail.scss";
+import "./index.scss";
 import React from "react";
 import { Button, Paper, Typography, Link, Modal, Box } from "@mui/material";
 import LinearProgress from '@mui/material/LinearProgress';
@@ -24,7 +24,7 @@ interface IProjectDetailState {
 }
 
 interface IProjectDetailUrlParams {
-    id?: string;
+    prjid?: string;
 }
 interface IProjectDetailPropsFromDispatch {
     showTopLoading?: () => void;
@@ -52,7 +52,7 @@ class ProjectDetail extends React.Component<IProjectDetailProps, IProjectDetailS
         }
     }
     public componentDidMount() {
-        const prjId = this.props.match.params.id;
+        const prjId = this.props.match.params.prjid;
         if (!!prjId) {
             this.props.showTopLoading!();
             projectAPI
@@ -110,9 +110,9 @@ class ProjectDetail extends React.Component<IProjectDetailProps, IProjectDetailS
                             <LinearProgress
                                 className={`lp-db`}
                                 variant="determinate"
-                                value={prjDetail?.document?.highlighted * 100 / prjDetail?.document?.total}
+                                value={prjDetail?.document?.processed * 100 / prjDetail?.document?.total}
                             />
-                            <p>{`${prjDetail?.document?.highlighted} văn bản / ${prjDetail?.document?.total} văn bản`}</p>
+                            <p>{`${prjDetail?.document?.processed} văn bản / ${prjDetail?.document?.total} văn bản`}</p>
                         </div>
                     </Paper>
                     <Paper className={`section section-member`}>
@@ -153,7 +153,7 @@ class ProjectDetail extends React.Component<IProjectDetailProps, IProjectDetailS
                         >
                             Mệnh đề
                         </Typography>
-                        <List
+                        {(!!prjDetail?.claim?.total) ? <List
                             sx={{ width: '100%', maxWidth: 360, bgcolor: 'background.paper' }}
                             component="nav"
                             aria-labelledby="nested-list-subheader"
@@ -202,11 +202,20 @@ class ProjectDetail extends React.Component<IProjectDetailProps, IProjectDetailS
                                     </ListItemButton>
                                 </List>
                             </Collapse>
-                        </List>
+                        </List> : <Typography
+                            variant="h5"
+                            component="div"
+                            sx={{
+                                m: 5,
+                                fontStyle: "bold"
+                            }}
+                        >
+                            Hiện tại chưa có mệnh đề nào được tạo
+                        </Typography>}
                         <Button
                             className={`bt-add-member`}
                             variant="contained"
-                            onClick={() => history.push(`/project/${prjDetail.project_id}/createclaims`)}
+                            onClick={() => history.push(`/project/${prjDetail.project_id}/${prjDetail.es_id}/createclaims`)}
                         >
                             Viết mệnh đề
                         </Button>
@@ -261,11 +270,12 @@ class ProjectDetail extends React.Component<IProjectDetailProps, IProjectDetailS
                                     fontStyle: "bold"
                                 }}
                             >
-                                Hiện tại chưa có mệnh đề nào được tạo
+                                Hiện tại chưa có nhãn nào được gán
                             </Typography>
                         }
                         <Button
                             className={`bt-add-member`}
+                            onClick={() => history.push(`/project/${prjDetail.project_id}/${prjDetail.es_id}/annotateclaims`)}
                             variant="contained"
                         >
                             Gán nhãn

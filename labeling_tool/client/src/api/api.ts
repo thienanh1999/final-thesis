@@ -1,5 +1,6 @@
 import axios from "axios";
 import queryString from "querystring";
+import history from "../history";
 
 const API = axios.create({
     baseURL: "http://fimovm:8000/api",
@@ -15,7 +16,9 @@ API.interceptors.request.use(
             config !== undefined &&
             !!config.headers &&
             !!localStorage.getItem("accessToken") &&
-            localStorage.getItem("accessToken") !== ""
+            !!localStorage.getItem("loggedIn") &&
+            localStorage.getItem("accessToken") !== "" &&
+            localStorage.getItem("loggedIn") === "1"
         ) {
             config.headers.Authorization = `Bearer ${localStorage.getItem("accessToken")}`
         }
@@ -31,6 +34,10 @@ API.interceptors.response.use(
         return res;
     },
     err => {
+        if(err.response.status === 401) {
+            history.push("/");
+            localStorage.setItem("loggedIn", "0");
+        }
         return Promise.reject(!!err.response?.data ? err.response.data : err.response);
     }
 );

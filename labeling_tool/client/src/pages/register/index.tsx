@@ -1,4 +1,4 @@
-import "./Register.scss"
+import "./index.scss"
 import history from "../../history";
 import { Button, TextField } from "@mui/material";
 import React from "react";

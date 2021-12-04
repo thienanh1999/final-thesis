@@ -6,7 +6,7 @@ import "./index.scss";
 export default class Main extends React.Component {
     componentDidMount() {
         const loggedIn = localStorage.getItem('loggedIn')
-        if (loggedIn) history.push("/dashboard"); else history.push("/login")
+        if (loggedIn === "1") history.push("/dashboard"); else history.push("/login")
     }
     render() {
         return (
