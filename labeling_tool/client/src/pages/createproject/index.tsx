@@ -1,6 +1,6 @@
 import { Button, Paper, TextField, Typography } from "@mui/material";
 import React from "react";
-import "./CreateProject.scss"
+import "./index.scss"
 import * as generalActions from "../../redux/general/actions";
 import * as snackBarActions from "../../redux/snackbar/actions";
 import { SnackBarType } from "../../utils/enumerates";
@@ -31,9 +31,12 @@ interface ICreateProjectState {
     prjB1: string;
     prjEsId: string;
     prjSeqHL: string;
-    prjTabRowHL: string;
+    prjMinTabRowHL: string;
+    prjMaxTabRowHL: string;
     prjEsIdErrMsg: string;
     prjNameErrMsg: string;
+    pickedFile: any;
+    pickedFileName: string;
 }
 
 class CreateProject extends React.Component<ICreateProjectProps, ICreateProjectState> {
@@ -46,9 +49,12 @@ class CreateProject extends React.Component<ICreateProjectProps, ICreateProjectS
             prjB1: "",
             prjEsId: "",
             prjSeqHL: "",
-            prjTabRowHL: "",
+            prjMinTabRowHL: "",
+            prjMaxTabRowHL: "",
             prjNameErrMsg: "",
             prjEsIdErrMsg: "",
+            pickedFile: undefined,
+            pickedFileName: "",
         }
     }
     render() {
@@ -59,9 +65,12 @@ class CreateProject extends React.Component<ICreateProjectProps, ICreateProjectS
             prjB1,
             prjEsId,
             prjSeqHL,
-            prjTabRowHL,
+            prjMinTabRowHL,
+            prjMaxTabRowHL,
             prjEsIdErrMsg,
             prjNameErrMsg,
+            pickedFile,
+            pickedFileName,
         } = this.state;
         return (
             <div className={`createproject-container`}>
@@ -97,13 +106,32 @@ class CreateProject extends React.Component<ICreateProjectProps, ICreateProjectS
                     onChange={(newVal) => this.setState({ prjDesc: newVal.target.value })}
                 />
                 <div className={`div-upload`}>
-                    <Button
-                        className={`bt-upload`}
-                        variant="contained"
-                    >
-                        Tải lên dữ liệu
-                    </Button>
-                    <Paper className={`pp-status`}>Chưa có dữ liệu</Paper>
+
+                    <label htmlFor="input-upload">
+                        <input
+                            accept=".json"
+                            id="input-upload"
+                            name="input-upload"
+                            style={{ display: 'none' }}
+                            type="file"
+                            onChange={this.onUploadFileChanged}
+                        />
+                        <Button
+                            className={`bt-upload`}
+                            variant="contained"
+                            component="span"
+                        >
+                            Tải lên dữ liệu
+                        </Button>
+
+                    </label>
+
+                    <Paper className={`pp-status`}>
+                        {
+                            (pickedFile && !!pickedFileName) ?
+                                pickedFileName : "Chưa có dữ liệu"
+                        }
+                    </Paper>
                 </div>
                 <TextField
                     type="number"
@@ -151,10 +179,20 @@ class CreateProject extends React.Component<ICreateProjectProps, ICreateProjectS
                     className={`tf-highlighted-table tf`}
                     id={`tf-highlighted-table`}
                     type="number"
-                    label="Số lượng hàng được đánh dấu"
-                    value={prjTabRowHL}
+                    label="Số lượng hàng tối thiểu trong bảng được đánh dấu"
+                    value={prjMinTabRowHL}
                     variant="outlined"
-                    onChange={(newVal) => this.setState({ prjTabRowHL: newVal.target.value })}
+                    onChange={(newVal) => this.setState({ prjMinTabRowHL: newVal.target.value })}
+                />
+                <TextField
+                    required
+                    className={`tf-highlighted-table tf`}
+                    id={`tf-highlighted-table`}
+                    type="number"
+                    label="Số lượng hàng tối đa trong bảng được đánh dấu"
+                    value={prjMaxTabRowHL}
+                    variant="outlined"
+                    onChange={(newVal) => this.setState({ prjMaxTabRowHL: newVal.target.value })}
                 />
                 <Button
                     className={`bt-create`}
@@ -168,9 +206,12 @@ class CreateProject extends React.Component<ICreateProjectProps, ICreateProjectS
                             prjK,
                             prjB1,
                             prjSeqHL,
-                            prjTabRowHL,
-                            prjEsId
+                            prjMinTabRowHL,
+                            prjMaxTabRowHL,
+                            prjEsId,
+                            pickedFile
                         ).then((res: any) => {
+                            console.log(res)
                             if (res.status === 201) {
                                 history.push("/");
                                 this.props.showSnackBar!("Khởi tạo dự án thành công!", 10000, SnackBarType.Success);
@@ -178,6 +219,7 @@ class CreateProject extends React.Component<ICreateProjectProps, ICreateProjectS
                                 this.props.showSnackBar!("Khởi tạo dự án thất bại! " + res.data.message, 10000, SnackBarType.Error);
                             }
                         }).catch((err: any) => {
+                            console.log(err)
                             if (!!err.errors && err.errors.es_id && Array.isArray(err.errors.es_id)) {
                                 this.setState({ prjEsIdErrMsg: err.errors.es_id[0] });
                             }
@@ -193,6 +235,22 @@ class CreateProject extends React.Component<ICreateProjectProps, ICreateProjectS
 
             </div>
         )
+    }
+    private onUploadFileChanged = (ev: any) => {
+        if (
+            ev &&
+            ev.target &&
+            ev.target.files &&
+            ev.target.files.length > 0 &&
+            ev.target.files[0].name.includes(".json")
+        ) {
+            this.setState({
+                pickedFile: ev.target.files[0],
+                pickedFileName: ev.target.files[0].name
+            });
+        } else {
+            this.props.showSnackBar!("Tải lên tệp tin JSON thất bại. Vui lòng kiểm tra lại định dạng tệp tin.", 10000, SnackBarType.Error);
+        }
     }
 }
 

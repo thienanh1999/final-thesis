@@ -1,6 +1,6 @@
 import { AppBar, Button, Toolbar, Typography } from "@mui/material";
 import React from "react";
-import "./Header.scss";
+import "./index.scss";
 import AccountCircle from '@mui/icons-material/AccountCircle';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
@@ -43,8 +43,10 @@ export default class Header extends React.Component<{ inLoginScreen: boolean }, 
                     <div className={`div-logo-home`} onClick={() => history.push("/")}>
                         <img className={`img-home`} src='/fimo-logo-300x97.png' alt='fimo-logo' />
                     </div>
-                    <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+                    <Typography variant="h6" component="div" sx={{ flexGrow: 1, display: { xs: 'none', sm: 'none', md: 'block' } }}>
                         FIMO Labeling tool
+                    </Typography>
+                    <Typography component="div" sx={{ flexGrow: 1, display: { xs: 'block', sm: 'block', md: 'none' } }}>
                     </Typography>
                     {localStorage.getItem('loggedIn') === "1" && <Button
                         color="inherit"

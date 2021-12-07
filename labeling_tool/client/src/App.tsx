@@ -3,13 +3,15 @@ import {
 	Route,
 } from "react-router-dom";
 import Main from './pages';
-import Register from "./pages/register/Register";
+import Register from "./pages/register";
 import history from './history';
-import Dashborad from "./pages/dashboard/Dashboard";
-import Login from "./pages/login/Login";
-import Header from "./pages/header/Header";
-import CreateProject from "./pages/createproject/CreateProject";
-import ProjectDetail from "./pages/projectdetail/ProjectDetail";
+import Dashborad from "./pages/dashboard";
+import Login from "./pages/login";
+import Header from "./pages/header";
+import CreateProject from "./pages/createproject";
+import ProjectDetail from "./pages/projectdetail";
+import CreateClaims from "./pages/createclaims";
+import AnnotateClaims from "./pages/annotateclaims";
 import { connect } from 'react-redux';
 import { IRootState } from './redux';
 import * as snackBarActions from './redux/snackbar/actions';
@@ -26,7 +28,6 @@ import { SnackBarType } from "./utils/enumerates";
 import { ISnackBarState, SnackBarActions } from "./redux/snackbar/types";
 import { Dispatch } from "redux";
 import Utils from "./utils/utils";
-import CreateClaims from "./pages/createclaims/CreateClaims";
 
 function mapDispatcherToProps(dispatch: Dispatch<SnackBarActions>): IAppPropsFromDispatch {
 	return {
@@ -67,7 +68,7 @@ const modalStyle: any = {
 };
 
 class App extends React.Component<IAppProps> {
-	private handleClose = () => {
+	private onSnackBarClosed = () => {
 		this.props.hideSnackBar!();
 	}
 	render() {
@@ -80,8 +81,9 @@ class App extends React.Component<IAppProps> {
 					<Route exact path='/dashboard' component={Dashborad} />
 					<Route exact path='/login' component={Login} />
 					<Route exact path='/createproject' component={CreateProject} />
-					<Route exact path='/project/:id' component={ProjectDetail} />
-					<Route exact path='/project/:id/createclaims' component={CreateClaims} />
+					<Route exact path='/project/:prjid' component={ProjectDetail} />
+					<Route exact path='/project/:prjid/:esid/createclaims' component={CreateClaims} />
+					<Route exact path='/project/:prjid/:esid/annotateclaims' component={AnnotateClaims} />
 				</Router>
 				<Modal
 					open={!!this.props.showTopLoading}
@@ -105,9 +107,9 @@ class App extends React.Component<IAppProps> {
 						!!this.props.snackBarState?.duration ?
 							this.props.snackBarState.duration : 2000
 					}
-					onClose={this.handleClose}>
+					onClose={this.onSnackBarClosed}>
 					<Alert
-						onClose={this.handleClose}
+						onClose={this.onSnackBarClosed}
 						severity={Utils.convertSnackBarType(
 							this.props.snackBarState?.type
 						)}
