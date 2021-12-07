@@ -140,6 +140,7 @@ class Evidence(models.Model):
     claim = models.ForeignKey(Claim, on_delete=models.DO_NOTHING)
     sentence = models.ForeignKey(Sentence, on_delete=models.DO_NOTHING, default=None, null=True)
     cell = models.ForeignKey(Cell, on_delete=models.DO_NOTHING, default=None, null=True)
+    set = models.IntegerField(default=1)
 
     class Meta:
         db_table = "evidence"
@@ -153,6 +154,7 @@ class Annotator(models.Model):
     document = models.ForeignKey(Document, on_delete=models.DO_NOTHING, default=None, null=True)
     sentence = models.ForeignKey(Sentence, on_delete=models.DO_NOTHING, default=None, null=True)
     cell = models.ForeignKey(Cell, on_delete=models.DO_NOTHING, default=None, null=True)
+    set = models.IntegerField(default=1)
 
     class Meta:
         db_table = "annotator"
