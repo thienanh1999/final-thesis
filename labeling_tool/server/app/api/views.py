@@ -8,6 +8,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework import viewsets
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.decorators import action, parser_classes
@@ -30,19 +31,24 @@ class UserRegisterView(APIView):
     @staticmethod
     def post(request):
         serializer = UserSerializer(data=request.data)
+        if request.data.get('phone') is None:
+            return Response({
+                'errors': 'phone is required'
+            }, status.HTTP_400_BAD_REQUEST)
         if serializer.is_valid():
             serializer.validated_data['password'] = make_password(
                 serializer.validated_data['password'])
             serializer.save()
 
-            return JsonResponse({
-                'message': 'Register successfully!',
-                'result': 201
-            }, status=status.HTTP_201_CREATED)
+            user = User.objects.filter(email=request.data['email']).first()
+            result = user.to_dict()
+            result['phone'] = user.phone
+            result['gender'] = "MALE" if user.gender == 0 else "FEMALE"
+            return Response(result, status=status.HTTP_201_CREATED)
 
         else:
             return JsonResponse({
-                'message': 'This email has already exist!',
+                'message': 'This email or phone has already exist!',
                 'result': 400,
             }, status=status.HTTP_400_BAD_REQUEST)
 
@@ -125,6 +131,38 @@ class UserViewSet(APIView):
             'result': 200,
             'users': data
         })
+
+
+class ChangePasswordView(APIView):
+    @staticmethod
+    def put(request):
+        user = User.objects.filter(email=request.user).first()
+        if user is None:
+            return Response({}, status.HTTP_401_UNAUTHORIZED)
+        if request.data.get('password') is None:
+            return Response({
+                'errors': 'New Password required'
+            }, status.HTTP_400_BAD_REQUEST)
+        user.password = make_password(request.data['password'])
+        user.save()
+        return Response({}, status.HTTP_201_CREATED)
+
+
+class UpdateUserProfileView(APIView):
+    @staticmethod
+    def put(request):
+        user = User.objects.filter(email=request.user).first()
+        if user is None:
+            return Response({}, status.HTTP_401_UNAUTHORIZED)
+        if request.data.get('full_name') is not None:
+            user.full_name = request.data['full_name']
+        if request.data.get('gender') is not None:
+            user.gender = request.data['gender']
+        user.save()
+        result = user.to_dict()
+        result['phone'] = user.phone
+        result['gender'] = "MALE" if user.gender == 0 else "FEMALE"
+        return Response(result, status.HTTP_201_CREATED)
 
 
 class FileUploadView(APIView):
@@ -513,15 +551,15 @@ class ClaimViewSet(viewsets.ModelViewSet):
                 'errors': 'Document is not exist'
             }, status.HTTP_404_NOT_FOUND)
         result = {}
-        if request.data['claim_1'] != '':
+        if request.data.get('claim_1') is not None:
             claim_1 = Claim.objects.create(project=project, document=document,
                                            type=1, content=request.data['claim_1'], created_by=user)
             result['claim_1'] = claim_1.to_dict()
-        if request.data['claim_2'] != '':
+        if request.data.get('claim_2') is not None:
             claim_2 = Claim.objects.create(project=project, document=document,
                                            type=2, content=request.data['claim_2'], created_by=user)
             result['claim_2'] = claim_2.to_dict()
-        if request.data['claim_3'] != '' and 1 <= request.data['sub_type'] <= 5:
+        if request.data.get('claim_3') is not None and 1 <= request.data['sub_type'] <= 5:
             claim_3 = Claim.objects.create(project=project, document=document,
                                            type=3, sub_type=request.data['sub_type'],
                                            content=request.data['claim_3'], created_by=user)
@@ -533,12 +571,42 @@ class ClaimViewSet(viewsets.ModelViewSet):
         project = Project.objects.filter(id=request.data['project_id']).first()
         user = User.objects.filter(email=request.user).first()
         claims = Claim.objects.filter(project=project, created_by=user)
+        pagination = PageNumberPagination()
+        claims = pagination.paginate_queryset(claims, request)
         result = []
         for claim in claims:
             result.append(claim.to_dict())
         return Response({
-            'result': result
+            'count': pagination.page.paginator.count,
+            'previous': pagination.get_previous_link(),
+            'next': pagination.get_next_link(),
+            'results': result
         })
+
+    def update(self, request, pk=None):
+        if pk is None:
+            return Response({
+                'errors': 'claim id should not be None'
+            }, status.HTTP_400_BAD_REQUEST)
+        claim = Claim.objects.filter(pk=pk).first()
+        if claim is None:
+            return Response({
+                'errors': 'Claim is not exist'
+            }, status.HTTP_404_NOT_FOUND)
+        user = User.objects.filter(email=request.user).first()
+        if claim.created_by != user and claim.project.owner != user:
+            return Response({
+                'errors': 'Claim created by other'
+            }, status.HTTP_403_FORBIDDEN)
+        if claim.label == 'PICKED' or claim.is_labeled:
+            return Response({
+                'errors': 'Claim has been annotated'
+            }, status.HTTP_403_FORBIDDEN)
+        claim.content = request.data['content']
+        if claim.type == 3 and request.data.get('sub_type') is not None:
+            claim.sub_type = request.data['sub_type']
+        claim.save()
+        return Response(claim.to_dict(), status.HTTP_201_CREATED)
 
 
 class EvidenceViewSet(viewsets.ModelViewSet):
@@ -569,6 +637,38 @@ class EvidenceViewSet(viewsets.ModelViewSet):
             'claim_id': claim.id,
             'claim': claim.content
         }, status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'])
+    @is_project_member
+    def skip(self, request, pk=None):
+        if pk is None:
+            return Response({
+                'errors': 'claim id should not be None'
+            }, status.HTTP_400_BAD_REQUEST)
+        claim = Claim.objects.filter(pk=pk).first()
+        if claim is None:
+            return Response({
+                'errors': 'claim is not exist'
+            }, status.HTTP_404_NOT_FOUND)
+        project = Project.objects.filter(pk=request.data['project_id']).first()
+        if claim.project != project:
+            return Response({
+                'errors': 'claim is not in project'
+            }, status.HTTP_400_BAD_REQUEST)
+        user = User.objects.filter(email=request.user).first()
+        if claim.annotated_by != user:
+            return Response({
+                'errors': 'claim is not assigned to you'
+            }, status.HTTP_403_FORBIDDEN)
+        if claim.label != 'PICKED':
+            return Response({
+                'errors': 'claim has been labeled'
+            }, status.HTTP_400_BAD_REQUEST)
+
+        claim.label = 'SKIPPED'
+        claim.is_labeled = True
+        claim.save()
+        return Response({}, status.HTTP_201_CREATED)
 
     @is_project_member
     @transaction.atomic

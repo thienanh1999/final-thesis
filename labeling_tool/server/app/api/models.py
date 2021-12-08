@@ -12,6 +12,8 @@ class User(AbstractUser):
     password = models.CharField(max_length=100)
     full_name = models.CharField(max_length=100)
     email = models.EmailField(max_length=100, unique=True)
+    gender = models.SmallIntegerField(default=0)  # 0: Male, 1: Female
+    phone = models.CharField(max_length=20, unique=True, default=None)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
