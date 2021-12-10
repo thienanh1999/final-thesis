@@ -12,6 +12,8 @@ class User(AbstractUser):
     password = models.CharField(max_length=100)
     full_name = models.CharField(max_length=100)
     email = models.EmailField(max_length=100, unique=True)
+    gender = models.SmallIntegerField(default=0)  # 0: Male, 1: Female
+    phone = models.CharField(max_length=20, unique=True, default=None)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
@@ -140,6 +142,7 @@ class Evidence(models.Model):
     claim = models.ForeignKey(Claim, on_delete=models.DO_NOTHING)
     sentence = models.ForeignKey(Sentence, on_delete=models.DO_NOTHING, default=None, null=True)
     cell = models.ForeignKey(Cell, on_delete=models.DO_NOTHING, default=None, null=True)
+    set = models.IntegerField(default=1)
 
     class Meta:
         db_table = "evidence"
@@ -153,6 +156,7 @@ class Annotator(models.Model):
     document = models.ForeignKey(Document, on_delete=models.DO_NOTHING, default=None, null=True)
     sentence = models.ForeignKey(Sentence, on_delete=models.DO_NOTHING, default=None, null=True)
     cell = models.ForeignKey(Cell, on_delete=models.DO_NOTHING, default=None, null=True)
+    set = models.IntegerField(default=1)
 
     class Meta:
         db_table = "annotator"

@@ -8,6 +8,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework import viewsets
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.decorators import action, parser_classes
@@ -30,19 +31,24 @@ class UserRegisterView(APIView):
     @staticmethod
     def post(request):
         serializer = UserSerializer(data=request.data)
+        if request.data.get('phone') is None:
+            return Response({
+                'errors': 'phone is required'
+            }, status.HTTP_400_BAD_REQUEST)
         if serializer.is_valid():
             serializer.validated_data['password'] = make_password(
                 serializer.validated_data['password'])
             serializer.save()
 
-            return JsonResponse({
-                'message': 'Register successfully!',
-                'result': 201
-            }, status=status.HTTP_201_CREATED)
+            user = User.objects.filter(email=request.data['email']).first()
+            result = user.to_dict()
+            result['phone'] = user.phone
+            result['gender'] = "MALE" if user.gender == 0 else "FEMALE"
+            return Response(result, status=status.HTTP_201_CREATED)
 
         else:
             return JsonResponse({
-                'message': 'This email has already exist!',
+                'message': 'This email or phone has already exist!',
                 'result': 400,
             }, status=status.HTTP_400_BAD_REQUEST)
 
@@ -125,6 +131,38 @@ class UserViewSet(APIView):
             'result': 200,
             'users': data
         })
+
+
+class ChangePasswordView(APIView):
+    @staticmethod
+    def put(request):
+        user = User.objects.filter(email=request.user).first()
+        if user is None:
+            return Response({}, status.HTTP_401_UNAUTHORIZED)
+        if request.data.get('password') is None:
+            return Response({
+                'errors': 'New Password required'
+            }, status.HTTP_400_BAD_REQUEST)
+        user.password = make_password(request.data['password'])
+        user.save()
+        return Response({}, status.HTTP_201_CREATED)
+
+
+class UpdateUserProfileView(APIView):
+    @staticmethod
+    def put(request):
+        user = User.objects.filter(email=request.user).first()
+        if user is None:
+            return Response({}, status.HTTP_401_UNAUTHORIZED)
+        if request.data.get('full_name') is not None:
+            user.full_name = request.data['full_name']
+        if request.data.get('gender') is not None:
+            user.gender = request.data['gender']
+        user.save()
+        result = user.to_dict()
+        result['phone'] = user.phone
+        result['gender'] = "MALE" if user.gender == 0 else "FEMALE"
+        return Response(result, status.HTTP_201_CREATED)
 
 
 class FileUploadView(APIView):
@@ -333,7 +371,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 return Response(get_project_info(project.id), status.HTTP_201_CREATED)
         except Exception as e:
             return Response({
-                'result': 503,
                 'message': "Tải lên dữ liệu thất bại",
                 'logs': str(e)
             }, status.HTTP_503_SERVICE_UNAVAILABLE)
@@ -346,40 +383,52 @@ class ProjectMemberViewSet(viewsets.ModelViewSet):
     @is_project_owner
     def create(self, request):
         project = Project.objects.filter(id=request.data['project_id']).first()
-        serializer = self.serializer_class(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            project_members = self.queryset.filter(project=project)
-            return Response({
-                'project_id': project.id,
-                'project_member': set(project_member.user.id for project_member in project_members)
-            }, 201)
-        else:
-            return Response({
-                'error': serializer.errors
-            }, 400)
+        user_ids = request.data['user_ids']
+        project_members = []
+        for user_id in user_ids:
+            user = User.objects.filter(pk=user_id).first()
+            if user is None:
+                return Response({
+                    'errors': 'User ' + str(user_id) + ' is not exist'
+                }, status.HTTP_404_NOT_FOUND)
+            project_member = self.queryset.filter(project=project, user=user).first()
+            if project_member is not None:
+                return Response({
+                    'errors': 'User ' + str(user_id) + ' already in project'
+                }, status.HTTP_400_BAD_REQUEST)
+            project_members.append(ProjectMember(project=project, user=user))
+        ProjectMember.objects.bulk_create(project_members)
+        project_members = self.queryset.filter(project=project)
+        return Response({
+            'project_id': project.id,
+            'project_member': set(project_member.user.id for project_member in project_members)
+        }, status.HTTP_201_CREATED)
 
     @action(methods=['delete'], detail=False)
     @is_project_owner
     def delete(self, request):
         project = Project.objects.filter(id=request.data['project_id']).first()
-        member = User.objects.filter(id=request.data['user_id']).first()
-        if member is None:
-            return Response({
-                'error': 'User not found'
-            }, 404)
-        project_member = self.queryset.filter(
-            user=member, project=project).first()
-        if project_member is None:
-            return Response({
-                'error': 'User not in project'
-            }, 400)
-        if member == project.owner:
-            return Response({
-                'error': 'Can not remove project owner from project'
-            }, 400)
-        self.queryset.filter(user=member, project=project).delete()
-        return Response({}, 201)
+        user_ids = request.data['user_ids']
+        project_members = []
+        for user_id in user_ids:
+            user = User.objects.filter(pk=user_id).first()
+            if user is None:
+                return Response({
+                    'errors': 'User ' + str(user_id) + ' is not exist'
+                }, status.HTTP_404_NOT_FOUND)
+            project_member = self.queryset.filter(project=project, user=user).first()
+            if project_member is None:
+                return Response({
+                    'errors': 'User ' + str(user_id) + ' not in project'
+                }, status.HTTP_400_BAD_REQUEST)
+            project_members.append(project_member)
+        for item in project_members:
+            item.delete()
+        project_members = self.queryset.filter(project=project)
+        return Response({
+            'project_id': project.id,
+            'project_member': set(project_member.user.id for project_member in project_members)
+        }, status.HTTP_201_CREATED)
 
 
 class ClaimViewSet(viewsets.ModelViewSet):
@@ -501,18 +550,63 @@ class ClaimViewSet(viewsets.ModelViewSet):
             return Response({
                 'errors': 'Document is not exist'
             }, status.HTTP_404_NOT_FOUND)
-        claim_1 = Claim.objects.create(project=project, document=document,
-                                       type=1, content=request.data['claim_1'], created_by=user)
-        claim_2 = Claim.objects.create(project=project, document=document,
-                                       type=2, content=request.data['claim_2'], created_by=user)
-        claim_3 = Claim.objects.create(project=project, document=document,
-                                       type=3, sub_type=request.data['sub_type'],
-                                       content=request.data['claim_3'], created_by=user)
+        result = {}
+        if request.data.get('claim_1') is not None:
+            claim_1 = Claim.objects.create(project=project, document=document,
+                                           type=1, content=request.data['claim_1'], created_by=user)
+            result['claim_1'] = claim_1.to_dict()
+        if request.data.get('claim_2') is not None:
+            claim_2 = Claim.objects.create(project=project, document=document,
+                                           type=2, content=request.data['claim_2'], created_by=user)
+            result['claim_2'] = claim_2.to_dict()
+        if request.data.get('claim_3') is not None and 1 <= request.data['sub_type'] <= 5:
+            claim_3 = Claim.objects.create(project=project, document=document,
+                                           type=3, sub_type=request.data['sub_type'],
+                                           content=request.data['claim_3'], created_by=user)
+            result['claim_3'] = claim_3.to_dict()
+        return Response(result, status.HTTP_201_CREATED)
+
+    @is_project_member
+    def list(self, request):
+        project = Project.objects.filter(id=request.data['project_id']).first()
+        user = User.objects.filter(email=request.user).first()
+        claims = Claim.objects.filter(project=project, created_by=user)
+        pagination = PageNumberPagination()
+        claims = pagination.paginate_queryset(claims, request)
+        result = []
+        for claim in claims:
+            result.append(claim.to_dict())
         return Response({
-            'claim_1': claim_1.to_dict(),
-            'claim_2': claim_2.to_dict(),
-            'claim_3': claim_3.to_dict()
-        }, status.HTTP_201_CREATED)
+            'count': pagination.page.paginator.count,
+            'previous': pagination.get_previous_link(),
+            'next': pagination.get_next_link(),
+            'results': result
+        })
+
+    def update(self, request, pk=None):
+        if pk is None:
+            return Response({
+                'errors': 'claim id should not be None'
+            }, status.HTTP_400_BAD_REQUEST)
+        claim = Claim.objects.filter(pk=pk).first()
+        if claim is None:
+            return Response({
+                'errors': 'Claim is not exist'
+            }, status.HTTP_404_NOT_FOUND)
+        user = User.objects.filter(email=request.user).first()
+        if claim.created_by != user and claim.project.owner != user:
+            return Response({
+                'errors': 'Claim created by other'
+            }, status.HTTP_403_FORBIDDEN)
+        if claim.label == 'PICKED' or claim.is_labeled:
+            return Response({
+                'errors': 'Claim has been annotated'
+            }, status.HTTP_403_FORBIDDEN)
+        claim.content = request.data['content']
+        if claim.type == 3 and request.data.get('sub_type') is not None:
+            claim.sub_type = request.data['sub_type']
+        claim.save()
+        return Response(claim.to_dict(), status.HTTP_201_CREATED)
 
 
 class EvidenceViewSet(viewsets.ModelViewSet):
@@ -522,19 +616,59 @@ class EvidenceViewSet(viewsets.ModelViewSet):
     @is_project_member
     def get_claim(self, request, pk=None):
         project = Project.objects.filter(id=request.data['project_id']).first()
-        queryset = Claim.objects.filter(project=project, is_labeled=False)
+        user = User.objects.filter(email=request.user).first()
+        claim = Claim.objects.filter(label='PICKED', project=project, annotated_by=user).first()
+        if claim is not None:
+            return Response({
+                'claim_id': claim.id,
+                'claim': claim.content
+            }, status.HTTP_200_OK)
+
+        queryset = Claim.objects.exclude(label='PICKED').filter(project=project, is_labeled=False)
         if queryset.count() == 0:
             return Response({
                 'errors': 'There is no claim left'
             }, status.HTTP_400_BAD_REQUEST)
         claim = queryset[random.randint(0, queryset.count() - 1)]
-        claim.is_labeled = True
-        claim.label = 'SKIPPED'
+        claim.label = 'PICKED'
+        claim.annotated_by = user
         claim.save()
         return Response({
             'claim_id': claim.id,
             'claim': claim.content
         }, status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'])
+    @is_project_member
+    def skip(self, request, pk=None):
+        if pk is None:
+            return Response({
+                'errors': 'claim id should not be None'
+            }, status.HTTP_400_BAD_REQUEST)
+        claim = Claim.objects.filter(pk=pk).first()
+        if claim is None:
+            return Response({
+                'errors': 'claim is not exist'
+            }, status.HTTP_404_NOT_FOUND)
+        project = Project.objects.filter(pk=request.data['project_id']).first()
+        if claim.project != project:
+            return Response({
+                'errors': 'claim is not in project'
+            }, status.HTTP_400_BAD_REQUEST)
+        user = User.objects.filter(email=request.user).first()
+        if claim.annotated_by != user:
+            return Response({
+                'errors': 'claim is not assigned to you'
+            }, status.HTTP_403_FORBIDDEN)
+        if claim.label != 'PICKED':
+            return Response({
+                'errors': 'claim has been labeled'
+            }, status.HTTP_400_BAD_REQUEST)
+
+        claim.label = 'SKIPPED'
+        claim.is_labeled = True
+        claim.save()
+        return Response({}, status.HTTP_201_CREATED)
 
     @is_project_member
     @transaction.atomic
@@ -548,57 +682,23 @@ class EvidenceViewSet(viewsets.ModelViewSet):
                 'errors': 'Claim is not exist in project'
             }, status.HTTP_404_NOT_FOUND)
 
+        if claim.label == 'PICKED' and claim.annotated_by != user:
+            return Response({
+                'errors': 'Another user is annotating this claim'
+            }, status.HTTP_403_FORBIDDEN)
+
         # Update claim label with evidences and annotators
         claim.label = request.data['label']
         claim.annotated_by = user
         claim.is_labeled = True
         claim.save()
         try:
-            evidence_datas = request.data['evidence']
-            for evidence in evidence_datas:
-                doc_id = evidence[0]
-                document = Document.objects.filter(project=project, doc_id=doc_id).first()
-                if document is None:
-                    claim.is_labeled = False
-                    claim.save()
-                    return Response({
-                        'errors': 'doc_id is not exist in ' + str(evidence)
-                    }, status.HTTP_400_BAD_REQUEST)
-                if len(evidence) == 2:
-                    sentence_id = evidence[1]
-                    sentence = Sentence.objects.filter(document=document, id_in_document=sentence_id).first()
-                    if sentence is None:
-                        sentence = Sentence.objects.create(document=document,
-                                                           id_in_document=sentence_id,
-                                                           context='{}_sentence_{}'.format(doc_id, sentence_id),
-                                                           is_highlighted=False)
-                    Evidence.objects.create(claim=claim, sentence=sentence)
-                else:
-                    table_id = evidence[1]
-                    row = evidence[2]
-                    col = evidence[3]
-                    table_data = TableData.objects.filter(document=document, id_in_document=table_id).first()
-                    if table_data is None:
-                        table_data = TableData.objects.create(document=document,
-                                                              id_in_document=table_id,
-                                                              is_highlighted=False)
-                    cell = Cell.objects.filter(table_data=table_data, row=row, col=col).first()
-                    if cell is None:
-                        cell = Cell.objects.create(table_data=table_data,
-                                           row=row, col=col,
-                                           is_header=(row == 1),
-                                           context='{}_table{}_{}_{}'.format(doc_id, table_id, row, col))
-                    Evidence.objects.create(claim=claim, cell=cell)
-
-            annotate_data = request.data['annotator_operation']
-            for annotation in annotate_data:
-                operation = annotation['operation']
-                time = annotation['time']
-                value = annotation['value']
-                if operation == "start" or operation == "search":
-                    Annotator.objects.create(claim=claim, time=time, operation=operation, value=value[0])
-                else:
-                    doc_id = value[0]
+            evidence_set = request.data['evidence']
+            set_id = 0
+            for evidence_datas in evidence_set:
+                set_id += 1
+                for evidence in evidence_datas:
+                    doc_id = evidence[0]
                     document = Document.objects.filter(project=project, doc_id=doc_id).first()
                     if document is None:
                         claim.is_labeled = False
@@ -606,9 +706,7 @@ class EvidenceViewSet(viewsets.ModelViewSet):
                         return Response({
                             'errors': 'doc_id is not exist in ' + str(evidence)
                         }, status.HTTP_400_BAD_REQUEST)
-                    if len(value) == 0:
-                        Annotator.objects.create(claim=claim, time=time, operation=operation, document=document)
-                    elif len(value) == 1:
+                    if len(evidence) == 2:
                         sentence_id = evidence[1]
                         sentence = Sentence.objects.filter(document=document, id_in_document=sentence_id).first()
                         if sentence is None:
@@ -616,7 +714,7 @@ class EvidenceViewSet(viewsets.ModelViewSet):
                                                                id_in_document=sentence_id,
                                                                context='{}_sentence_{}'.format(doc_id, sentence_id),
                                                                is_highlighted=False)
-                        Annotator.objects.create(claim=claim, time=time, operation=operation, sentence=sentence)
+                        Evidence.objects.create(claim=claim, sentence=sentence, set=set_id)
                     else:
                         table_id = evidence[1]
                         row = evidence[2]
@@ -632,7 +730,59 @@ class EvidenceViewSet(viewsets.ModelViewSet):
                                                        row=row, col=col,
                                                        is_header=(row == 1),
                                                        context='{}_table{}_{}_{}'.format(doc_id, table_id, row, col))
-                        Annotator.objects.create(claim=claim, time=time, operation=operation, cell=cell)
+                        Evidence.objects.create(claim=claim, cell=cell, set=set_id)
+
+            annotate_set = request.data['annotator_operation']
+            set_id = 0
+            for annotate_data in annotate_set:
+                set_id += 1
+                print(annotate_data)
+                for annotation in annotate_data:
+                    print(annotation)
+                    operation = annotation['operation']
+                    time = annotation['time']
+                    value = annotation['value']
+                    if operation == "start" or operation == "search":
+                        Annotator.objects.create(claim=claim, time=time, operation=operation, value=value[0], set=set_id)
+                    else:
+                        print("highlight")
+                        print(value)
+                        doc_id = value[0]
+                        document = Document.objects.filter(project=project, doc_id=doc_id).first()
+                        if document is None:
+                            claim.is_labeled = False
+                            claim.save()
+                            return Response({
+                                'errors': 'doc_id is not exist in ' + str(doc_id)
+                            }, status.HTTP_400_BAD_REQUEST)
+                        if len(value) == 1:
+                            Annotator.objects.create(claim=claim, time=time, operation=operation, document=document, set=set_id)
+                        elif len(value) == 2:
+                            sentence_id = value[1]
+                            sentence = Sentence.objects.filter(document=document, id_in_document=sentence_id).first()
+                            if sentence is None:
+                                sentence = Sentence.objects.create(document=document,
+                                                                   id_in_document=sentence_id,
+                                                                   context='{}_sentence_{}'.format(doc_id, sentence_id),
+                                                                   is_highlighted=False)
+                            Annotator.objects.create(claim=claim, time=time, operation=operation, sentence=sentence, set=set_id)
+                        else:
+                            table_id = value[1]
+                            row = value[2]
+                            col = value[3]
+                            table_data = TableData.objects.filter(document=document, id_in_document=table_id).first()
+                            if table_data is None:
+                                table_data = TableData.objects.create(document=document,
+                                                                      id_in_document=table_id,
+                                                                      is_highlighted=False)
+                            cell = Cell.objects.filter(table_data=table_data, row=row, col=col).first()
+                            if cell is None:
+                                cell = Cell.objects.create(table_data=table_data,
+                                                           row=row, col=col,
+                                                           is_header=(row == 1),
+                                                           context='{}_table{}_{}_{}'.format(doc_id, table_id, row,
+                                                                                             col))
+                            Annotator.objects.create(claim=claim, time=time, operation=operation, cell=cell, set=set_id)
 
             return Response({}, status.HTTP_201_CREATED)
         except Exception as e:
