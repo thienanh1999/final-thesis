@@ -11,6 +11,7 @@ internal_cases_count_regex = r'(\d+)[^\d]+ca ghi nhận trong nước'
 community_cases_count_regex = r'(\d+)[^\d]+ca trong cộng đồng'
 
 article_dictionaries = []
+count = 0
 for article in articles:
     content = article['content']
     content = content.replace('\n', '')
@@ -19,7 +20,8 @@ for article in articles:
     article_dict['time'] = article['time']
     article_dict['title'] = article['summary']
     article_dict['order'] = []
-
+    article_dict['_id'] = count
+    count += 1
     sentence_idx = 0
     for sentence in sentences:
         if 'nhận trong nước tại' in sentence:
