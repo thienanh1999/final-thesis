@@ -1,12 +1,12 @@
 import "./index.scss"
 import history from "../../history";
-import { Button, TextField } from "@mui/material";
+import { Button, FormControl, Grid, InputLabel, MenuItem, Select, Stack, TextField } from "@mui/material";
 import React from "react";
 import * as generalActions from "../../redux/general/actions";
 import * as snackBarActions from "../../redux/snackbar/actions";
 import { connect } from "react-redux";
 import userAPI from "../../api/userAPI";
-import { SnackBarType } from "../../utils/enumerates";
+import { GenderType, SnackBarType } from "../../utils/enumerates";
 
 const mapDispatcherToProps =
     (dispatch: any): IRegisterPropsFromDispatch => {
@@ -31,6 +31,9 @@ interface IRegisterState {
     errMsg: string;
     confirmPassword: string;
     confirmPasswordErrMsg: string;
+    gender: GenderType;
+    phone: string;
+    phoneErrMsg: string;
 }
 type IRegisterProps = IRegisterPropsFromDispatch;
 
@@ -42,15 +45,22 @@ class Register extends React.Component<IRegisterProps, IRegisterState> {
             password: "",
             emailErrMsg: "",
             passwordErrMsg: "",
+            phoneErrMsg: "",
             errMsg: "",
             fName: "",
             fNameErrMsg: "",
             confirmPassword: "",
             confirmPasswordErrMsg: "",
+            gender: GenderType.Male,
+            phone: "",
         }
     }
     render() {
-        const { email, password, fName, confirmPassword, errMsg, confirmPasswordErrMsg } = this.state;
+        const {
+            email, password, fName, confirmPassword,
+            errMsg, confirmPasswordErrMsg, gender, phone,
+            phoneErrMsg
+        } = this.state;
         return (
             <div className={`register-container`}>
                 <img src='/fimo-logo-300x97.png' alt='fimo-logo' />
@@ -83,12 +93,41 @@ class Register extends React.Component<IRegisterProps, IRegisterState> {
                     }}
                     variant="outlined"
                 />
-                <TextField
-                    className={`tf-normal`}
-                    id={`tf-phone`}
-                    label="Số điện thoại"
-                    variant="outlined"
-                />
+                <Stack direction={"row"}>
+                    <TextField
+                        sx={{ width: "300px" }}
+                        // className={`tf-normal`}
+                        id={`tf-phone`}
+                        label="Số điện thoại"
+                        variant="outlined"
+                        value={phone}
+                        onChange={(ev) => this.setState({
+                            phone: ev.target.value,
+                            errMsg: "",
+                            phoneErrMsg: ""
+                        })}
+                    />
+                    <FormControl sx={{ width: "100px", ml: 2 }}>
+                        <InputLabel id="label-select-gender">Giới tính</InputLabel>
+                        <Select
+                            labelId="select-gender"
+                            id="select-gender"
+                            value={gender}
+                            label="gender"
+                            onChange={(ev) => {
+                                this.setState({
+                                    gender: ev.target.value as GenderType,
+                                });
+                            }}
+                        >
+                            <MenuItem value={GenderType.Male}>Nam</MenuItem>
+                            <MenuItem value={GenderType.Female}>Nữ</MenuItem>
+                            <MenuItem value={GenderType.NonBinary}>Khác</MenuItem>
+                        </Select>
+                    </FormControl>
+                </Stack>
+
+
                 <TextField
                     className={`tf-password`}
                     id={`tf-username`}
@@ -140,9 +179,9 @@ class Register extends React.Component<IRegisterProps, IRegisterState> {
                             this.setState({ confirmPasswordErrMsg: "Mật khẩu không trùng khớp, vui lòng kiểm tra lại!" })
                         } else {
                             this.props.showTopLoading!();
-                            userAPI.register(email, fName, password).then((res: any) => {
+                            userAPI.register(email, fName, password, phone, gender).then((res: any) => {
                                 console.log(res)
-                                if (res.data && res.data.result && res.data.result === 201) {
+                                if (res.data && res.status === 201) {
                                     history.push("/login");
                                     this.props.showSnackBar!("Chúc mừng! Bạn đã đăng ký thành công", 10000, SnackBarType.Success);
                                 } else {

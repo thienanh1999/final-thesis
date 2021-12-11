@@ -1,4 +1,4 @@
-import { Grid, Accordion, Button, FormControl, FormControlLabel, FormLabel, Radio, RadioGroup, TextField, Typography, AccordionSummary, AccordionDetails, Box, Slider, Stack, Paper, Tab, List, ListItem, IconButton, ListItemAvatar, Avatar, ListItemText, Divider, InputLabel, Select, MenuItem } from "@mui/material";
+import { Grid, Accordion, Button, FormControl, FormControlLabel, FormLabel, Radio, RadioGroup, TextField, Typography, AccordionSummary, AccordionDetails, Box, Slider, Stack, Paper, Tab, List, ListItem, IconButton, ListItemAvatar, Avatar, ListItemText, Divider, InputLabel, Select, MenuItem, TableContainer, Table, TableRow, TableCell, TableHead, TableBody } from "@mui/material";
 import React from "react";
 import "./index.scss"
 import * as generalActions from "../../redux/general/actions";
@@ -298,13 +298,13 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
                         </Box>
                     </AccordionSummary>
                     <AccordionDetails>
-                        {this.getArticleContent(idx).map((sentence) =>
-                            <p
+                        {this.getArticleContent(idx).map((item) => {
+                            return item.type === EvidenceType.Sentence ? <p
                                 className={`tg-sentence`}
                                 style={{ padding: "5px" }}
                                 onClick={() => {
-                                    if (evidenceIds.includes(sentence.articleId)) {
-                                        const i = evidenceIds.indexOf(sentence.articleId);
+                                    if (evidenceIds.includes(item.articleId)) {
+                                        const i = evidenceIds.indexOf(item.articleId);
                                         const newSets = evidenceSets.map((set, j) => {
                                             if (i !== j) return set;
                                             else return {
@@ -312,8 +312,8 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
                                                 evidences: [
                                                     ...set.evidences,
                                                     {
-                                                        content: sentence.content,
-                                                        pos: sentence.pos,
+                                                        content: item.content,
+                                                        pos: item.pos,
                                                         type: EvidenceType.Sentence
                                                     }
                                                 ]
@@ -328,19 +328,19 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
                                             evidenceSets: [
                                                 ...evidenceSets,
                                                 {
-                                                    articleId: sentence.articleId,
-                                                    title: sentence.title,
-                                                    time: sentence.time,
+                                                    articleId: item.articleId,
+                                                    title: item.title,
+                                                    time: item.time,
                                                     evidences: [{
-                                                        content: sentence.content,
-                                                        pos: sentence.pos,
+                                                        content: item.content,
+                                                        pos: item.pos,
                                                         type: EvidenceType.Sentence
                                                     }]
                                                 }
                                             ],
                                             evidenceIds: [
                                                 ...evidenceIds,
-                                                sentence.articleId
+                                                item.articleId
                                             ],
                                             currentTab: evidenceIds.length.toString(),
                                         });
@@ -348,9 +348,38 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
                                 }}
                             >
                                 <Typography variant="caption"  >
-                                    {sentence.content}
+                                    {item.content}
                                 </Typography>
-                            </p>)}
+                            </p> : <TableContainer component={Paper}>
+                                <Table sx={{ minWidth: 650 }} aria-label="simple table">
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell>Dessert (100g serving)</TableCell>
+                                            <TableCell align="right">Calories</TableCell>
+                                            <TableCell align="right">Fat&nbsp;(g)</TableCell>
+                                            <TableCell align="right">Carbs&nbsp;(g)</TableCell>
+                                            <TableCell align="right">Protein&nbsp;(g)</TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {[{name:"", calories:"",fat:"",carbs:"",protein:""}].map((row) => (
+                                            <TableRow
+                                                key={row.name}
+                                                sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+                                            >
+                                                <TableCell component="th" scope="row">
+                                                    {row.name}
+                                                </TableCell>
+                                                <TableCell align="right">{row.calories}</TableCell>
+                                                <TableCell align="right">{row.fat}</TableCell>
+                                                <TableCell align="right">{row.carbs}</TableCell>
+                                                <TableCell align="right">{row.protein}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        })}
                     </AccordionDetails>
                 </Accordion>
             } else return <></>;
@@ -508,14 +537,15 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
         const { searchedArticles } = this.state;
         const returnVal: any[] = [];
         searchedArticles[idx]._source.order.forEach((fieldName: string) => {
-            if (fieldName.includes("sen"))
-                returnVal.push({
-                    content: searchedArticles[idx]._source[fieldName],
-                    pos: fieldName,
-                    articleId: searchedArticles[idx]._id,
-                    title: searchedArticles[idx]._source.title,
-                    time: searchedArticles[idx]._source.time,
-                });
+            returnVal.push({
+                content: searchedArticles[idx]._source[fieldName],
+                pos: fieldName,
+                articleId: searchedArticles[idx]._id,
+                title: searchedArticles[idx]._source.title,
+                time: searchedArticles[idx]._source.time,
+                type: fieldName.includes("sentence") ? EvidenceType.Sentence :
+                    EvidenceType.TableCell,
+            });
         });
         return returnVal;
     }

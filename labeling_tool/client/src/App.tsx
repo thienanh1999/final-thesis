@@ -28,6 +28,7 @@ import { SnackBarType } from "./utils/enumerates";
 import { ISnackBarState, SnackBarActions } from "./redux/snackbar/types";
 import { Dispatch } from "redux";
 import Utils from "./utils/utils";
+import "./index.scss";
 
 function mapDispatcherToProps(dispatch: Dispatch<SnackBarActions>): IAppPropsFromDispatch {
 	return {

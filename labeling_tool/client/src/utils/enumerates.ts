@@ -20,3 +20,14 @@ export enum LabelType {
     Refute,
     NotEnoughInfo,
 }
+
+export enum GenderType {
+    Male = 0,
+    Female = 1,
+    NonBinary = 2,
+}
+
+export enum EvidenceType {
+    Table,
+    Sentence
+}

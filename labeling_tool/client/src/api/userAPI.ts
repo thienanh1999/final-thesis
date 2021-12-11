@@ -1,12 +1,16 @@
+import { GenderType } from "../utils/enumerates";
 import API from "./api";
 
 class UserAPI {
-    register = (pEmail: string, pName: string, pPassword: string) => {
+    register = (pEmail: string, pName: string,
+        pPassword: string, pPhone: string, pGender: GenderType) => {
         const url = '/auth/register';
-        return API.post(url, { 
-            email: pEmail, 
+        return API.post(url, {
+            email: pEmail,
             password: pPassword,
             full_name: pName,
+            phone: pPhone,
+            gender: pGender,
         });
     }
     login = (pEmail: string, pPassword: string) => {
