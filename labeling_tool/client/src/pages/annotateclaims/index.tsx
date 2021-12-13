@@ -47,11 +47,11 @@ interface IAnnotateClaimsState {
     minScore: number | string | Array<number | string>;
     currentTab: string;
     showResCnt: boolean;
-    evidenceSets: EvidenceSet[];
+    evidenceSets: EvidenceItem[][];
     label: LabelType;
     claimId: number;
     claimContent: string;
-    evidenceIds: string[];
+    currentSetIdx: number;
 }
 
 enum EvidenceType {
@@ -60,16 +60,12 @@ enum EvidenceType {
 }
 
 interface EvidenceItem {
-    content: string;
+    content: any;
     pos: string;
-    type: EvidenceType
-}
-
-interface EvidenceSet {
+    type: EvidenceType;
     articleId: string;
     title: string;
     time: string;
-    evidences: EvidenceItem[];
 }
 
 class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClaimsState> {
@@ -86,8 +82,8 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
             minScore: 25,
             showResCnt: false,
             evidenceSets: [],
-            evidenceIds: [],
             label: LabelType.NotEnoughInfo,
+            currentSetIdx: 0,
         }
     }
 
@@ -225,39 +221,47 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
             showTopLoading,
             hideTopLoading,
         } = this.props;
-        return <Button
-            sx={{ mt: 1, width: 150, p: 1 }}
-            className={`bt-search`}
-            variant="contained"
-            onClick={() => {
-                if (!!searchContent) {
-                    showTopLoading!();
-                    searchAPI.advanceSearch(
-                        esId!,
-                        searchContent,
-                        currentSearchType,
-                        minScore,
-                        0
-                    ).then(res => {
-                        console.log(res)
-                        if (
-                            res &&
-                            res.data &&
-                            res.data.hits &&
-                            res.data.hits.hits &&
-                            Array.isArray(res.data.hits.hits)
-                        )
-                            this.setState({
-                                searchedArticles: res.data.hits.hits,
-                                noOfSearchRes: res.data.hits.total.value,
-                                showResCnt: true,
-                            });
-                    }).finally(() => hideTopLoading!());
-                }
-            }}
-        >
-            Tìm kiếm
-        </Button>;
+        return <Box sx={{ pt: 2 }}>
+            <Button
+                sx={{ width: 150, p: 1 }}
+                className={`bt-search`}
+                variant="contained"
+                onClick={() => {
+                    if (!!searchContent) {
+                        showTopLoading!();
+                        searchAPI.advanceSearch(
+                            esId!,
+                            searchContent,
+                            currentSearchType,
+                            minScore,
+                            0
+                        ).then(res => {
+                            console.log(res)
+                            if (
+                                res &&
+                                res.data &&
+                                res.data.hits &&
+                                res.data.hits.hits &&
+                                Array.isArray(res.data.hits.hits)
+                            ) {
+                                this.setState({
+                                    searchedArticles: res.data.hits.hits,
+                                    noOfSearchRes: res.data.hits.total.value,
+                                    showResCnt: true,
+                                });
+                                if (res.data.hits.hits) {
+
+                                }
+                            }
+                        }).finally(() => hideTopLoading!());
+                    } else {
+                        this.props.showSnackBar!("Vui lòng nhập nội dung tìm kiếm!", 3000, SnackBarType.Warning);
+                    }
+                }}
+            >
+                Tìm kiếm
+            </Button>
+        </Box>;
     }
 
     private renderSearchSectionTitle = () => {
@@ -273,7 +277,7 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
     }
 
     private renderSearchResults = () => {
-        const { searchedArticles, minScore, evidenceSets, evidenceIds } = this.state;
+        const { searchedArticles, minScore, evidenceSets, currentSetIdx } = this.state;
         return searchedArticles.map((article: any, idx: number) => {
             if (
                 article &&
@@ -298,82 +302,42 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
                         </Box>
                     </AccordionSummary>
                     <AccordionDetails>
-                        {this.getArticleContent(idx).map((item) => {
-                            return item.type === EvidenceType.Sentence ? <p
+                        {this.getArticleContent(idx).map((currentArticle) => {
+                            console.log(currentArticle);
+                            return currentArticle.type === EvidenceType.Sentence ? <p
                                 className={`tg-sentence`}
                                 style={{ padding: "5px" }}
                                 onClick={() => {
-                                    if (evidenceIds.includes(item.articleId)) {
-                                        const i = evidenceIds.indexOf(item.articleId);
-                                        const newSets = evidenceSets.map((set, j) => {
-                                            if (i !== j) return set;
-                                            else return {
-                                                ...set,
-                                                evidences: [
-                                                    ...set.evidences,
-                                                    {
-                                                        content: item.content,
-                                                        pos: item.pos,
-                                                        type: EvidenceType.Sentence
-                                                    }
-                                                ]
-                                            };
-                                        });
-                                        this.setState({
-                                            evidenceSets: newSets,
-                                            currentTab: (newSets.length - 1).toString(),
-                                        });
-                                    } else {
-                                        this.setState({
-                                            evidenceSets: [
-                                                ...evidenceSets,
-                                                {
-                                                    articleId: item.articleId,
-                                                    title: item.title,
-                                                    time: item.time,
-                                                    evidences: [{
-                                                        content: item.content,
-                                                        pos: item.pos,
-                                                        type: EvidenceType.Sentence
-                                                    }]
-                                                }
-                                            ],
-                                            evidenceIds: [
-                                                ...evidenceIds,
-                                                item.articleId
-                                            ],
-                                            currentTab: evidenceIds.length.toString(),
-                                        });
-                                    }
+                                    this.setState({
+                                        evidenceSets: evidenceSets.map((set, idx): EvidenceItem[] => {
+                                            if (idx !== currentSetIdx) return set;
+                                            else return [
+                                                ...evidenceSets[idx],
+                                                currentArticle,
+                                            ]
+                                        })
+                                    })
                                 }}
                             >
                                 <Typography variant="caption"  >
-                                    {item.content}
+                                    {currentArticle.content}
                                 </Typography>
                             </p> : <TableContainer component={Paper}>
                                 <Table sx={{ minWidth: 650 }} aria-label="simple table">
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell>Dessert (100g serving)</TableCell>
-                                            <TableCell align="right">Calories</TableCell>
-                                            <TableCell align="right">Fat&nbsp;(g)</TableCell>
-                                            <TableCell align="right">Carbs&nbsp;(g)</TableCell>
-                                            <TableCell align="right">Protein&nbsp;(g)</TableCell>
-                                        </TableRow>
-                                    </TableHead>
                                     <TableBody>
-                                        {[{name:"", calories:"",fat:"",carbs:"",protein:""}].map((row) => (
+                                        {(!!currentArticle && !!currentArticle.content && !!currentArticle.content.table && Array.isArray(currentArticle.content.table)) && currentArticle.content.table.map((row: any, idx: number) => (
                                             <TableRow
-                                                key={row.name}
+                                                key={`table-row-${idx}`}
                                                 sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
                                             >
-                                                <TableCell component="th" scope="row">
-                                                    {row.name}
-                                                </TableCell>
-                                                <TableCell align="right">{row.calories}</TableCell>
-                                                <TableCell align="right">{row.fat}</TableCell>
-                                                <TableCell align="right">{row.carbs}</TableCell>
-                                                <TableCell align="right">{row.protein}</TableCell>
+                                                {(!!row && Array.isArray(row)) && row.map(cell => <TableCell
+                                                    className={`tg-sentence`}
+                                                    style={{ padding: "5px" }}
+                                                >
+                                                    <Typography variant={(!!cell.id && cell.id.includes("header")) ? `subtitle2` : `caption`} >
+                                                        {cell.value}
+                                                    </Typography>
+                                                </TableCell>)}
                                             </TableRow>
                                         ))}
                                     </TableBody>
@@ -533,7 +497,7 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
         </React.Fragment>
     }
 
-    private getArticleContent = (idx: number): any[] => {
+    private getArticleContent = (idx: number): EvidenceItem[] => {
         const { searchedArticles } = this.state;
         const returnVal: any[] = [];
         searchedArticles[idx]._source.order.forEach((fieldName: string) => {
