@@ -1,4 +1,4 @@
-import { Grid, Accordion, Button, FormControl, FormControlLabel, FormLabel, Radio, RadioGroup, TextField, Typography, AccordionSummary, AccordionDetails, Box, Slider, Stack, Paper, Tab, List, ListItem, IconButton, ListItemAvatar, Avatar, ListItemText, Divider, InputLabel, Select, MenuItem, TableContainer, Table, TableRow, TableCell, TableHead, TableBody } from "@mui/material";
+import { Grid, Accordion, Button, FormControl, FormControlLabel, FormLabel, Radio, RadioGroup, TextField, Typography, AccordionSummary, AccordionDetails, Box, Slider, Stack, Paper, Tab, List, ListItem, IconButton, ListItemAvatar, Avatar, ListItemText, Divider, InputLabel, Select, MenuItem, TableContainer, Table, TableRow, TableCell, TableBody, Link, Modal } from "@mui/material";
 import React from "react";
 import "./index.scss"
 import * as generalActions from "../../redux/general/actions";
@@ -41,17 +41,23 @@ interface IAnnotateClaimsPropsFromDispatch {
 
 interface IAnnotateClaimsState {
     searchContent: string;
+    staticSearchCotent: string;
     currentSearchType: SearchType;
+    staticSearchType: SearchType;
     searchedArticles: any[];
     noOfSearchRes: number;
     minScore: number | string | Array<number | string>;
-    currentTab: string;
+    staticMinScore: number | string | Array<number | string>;
+    currentTab: number;
     showResCnt: boolean;
     evidenceSets: EvidenceItem[][];
     label: LabelType;
     claimId: number;
     claimContent: string;
     currentSetIdx: number;
+    page: number;
+    loadingMore: boolean;
+    showSkipModal: boolean;
 }
 
 enum EvidenceType {
@@ -71,29 +77,37 @@ interface EvidenceItem {
 class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClaimsState> {
     public constructor(props: IAnnotateClaimsProps) {
         super(props);
-        this.state = {
-            searchContent: "",
-            claimContent: "",
-            claimId: 0,
-            currentSearchType: SearchType.SearchAllFields,
-            searchedArticles: [],
-            noOfSearchRes: 0,
-            currentTab: "0",
-            minScore: 25,
-            showResCnt: false,
-            evidenceSets: [],
-            label: LabelType.NotEnoughInfo,
-            currentSetIdx: 0,
-        }
+        this.state = this.defaultState;
     }
-
-    private getNewClaim = () => {
+    private defaultState = {
+        staticMinScore: 25,
+        staticSearchType: SearchType.SearchAllFields,
+        staticSearchCotent: "",
+        searchContent: "",
+        claimContent: "",
+        claimId: 0,
+        currentSearchType: SearchType.SearchAllFields,
+        searchedArticles: [],
+        noOfSearchRes: 0,
+        currentTab: -1,
+        minScore: 25,
+        showResCnt: false,
+        evidenceSets: [],
+        label: LabelType.NotEnoughInfo,
+        currentSetIdx: -1,
+        page: 0,
+        loadingMore: false,
+        showSkipModal: false,
+    }
+    private getClaim = () => {
         const prjId = this.props.match.params.prjid;
         const { showTopLoading, showSnackBar, hideTopLoading } = this.props;
         showTopLoading!();
         projectAPI.getClaim(prjId!).then(res => {
             if (res && res.status === 200 && !!res.data.claim_id) {
                 this.setState({
+                    ...this.defaultState,
+                    evidenceSets: [],
                     claimId: res.data.claim_id,
                     claimContent: !!res.data.claim ? res.data.claim : "",
                 });
@@ -117,7 +131,7 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
         })
     }
     public componentDidMount() {
-        this.getNewClaim();
+        this.getClaim();
     }
     public render() {
         return <Stack direction={{ xs: 'column', sm: 'column', md: 'row', lg: 'row' }} sx={{ p: 2 }}>
@@ -144,6 +158,8 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
                         {this.renderSearchButton()}
                         {this.renderResultCount()}
                         {this.renderSearchResults()}
+                        {this.renderLoadMoreBtn()}
+                        {this.renderModal()}
                     </Stack>
                 </Paper>
             </Grid>
@@ -163,6 +179,21 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
                 })
             }}
         />;
+    }
+    private renderLoadMoreBtn = () => {
+        return (this.state.noOfSearchRes > this.state.page * 10) && <Box
+            sx={{ textAlign: "center" }}
+        >
+
+
+            {this.state.loadingMore ? <span>...</span> : <Box><Link
+                onClick={this.loadMoreArticles}
+            >
+                Tải thêm kết quả
+            </Link></Box>}
+        </Box>
+
+
     }
 
     private renderSearchTypeChoices = () => {
@@ -214,6 +245,8 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
         const {
             searchContent,
             currentSearchType,
+            currentSetIdx,
+            evidenceSets,
         } = this.state;
         const minScore = typeof this.state.minScore === 'number' ?
             this.state.minScore : 0;
@@ -236,7 +269,6 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
                             minScore,
                             0
                         ).then(res => {
-                            console.log(res)
                             if (
                                 res &&
                                 res.data &&
@@ -248,12 +280,20 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
                                     searchedArticles: res.data.hits.hits,
                                     noOfSearchRes: res.data.hits.total.value,
                                     showResCnt: true,
+                                    page: 0,
+                                    staticSearchCotent: searchContent,
+                                    staticMinScore: minScore,
+                                    staticSearchType: currentSearchType,
                                 });
-                                if (res.data.hits.hits) {
-
-                                }
                             }
-                        }).finally(() => hideTopLoading!());
+                        }).finally(() => {
+                            hideTopLoading!();
+                            if (evidenceSets.length >= currentSetIdx) {
+                                this.setState({
+                                    currentSetIdx: currentSetIdx + 1
+                                })
+                            }
+                        });
                     } else {
                         this.props.showSnackBar!("Vui lòng nhập nội dung tìm kiếm!", 3000, SnackBarType.Warning);
                     }
@@ -264,6 +304,41 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
         </Box>;
     }
 
+    private loadMoreArticles = () => {
+        const esId = this.props.match.params.esid;
+        const {
+            staticSearchType,
+            staticSearchCotent,
+            searchedArticles,
+            page,
+        } = this.state;
+        const staticMinScore = typeof this.state.staticMinScore === 'number' ?
+            this.state.staticMinScore : 0;
+        this.setState({ loadingMore: true });
+        searchAPI.advanceSearch(
+            esId!,
+            staticSearchCotent,
+            staticSearchType,
+            staticMinScore,
+            page + 1,
+        ).then(res => {
+            if (
+                res &&
+                res.data &&
+                res.data.hits &&
+                res.data.hits.hits &&
+                Array.isArray(res.data.hits.hits)
+            ) {
+                res.data.hits.hits.forEach((atc: any) => searchedArticles.push(atc));
+                this.setState({
+                    searchedArticles: searchedArticles,
+                    page: page + 1,
+                });
+            }
+        }).finally(() => {
+            this.setState({ loadingMore: false });
+        });
+    }
     private renderSearchSectionTitle = () => {
         return <Typography
             variant="h6"
@@ -278,45 +353,45 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
 
     private renderSearchResults = () => {
         const { searchedArticles, minScore, evidenceSets, currentSetIdx } = this.state;
-        return searchedArticles.map((article: any, idx: number) => {
+        return searchedArticles.map((article: any, atcIdx: number) => {
             if (
                 article &&
                 article._source &&
-                article._source.title &&
-                article._source.time &&
                 article._source.order &&
-                searchedArticles[idx]._score > minScore
+                searchedArticles[atcIdx]._score > minScore
             ) {
                 return <Accordion sx={{ mt: 1 }}>
                     <AccordionSummary
                         expandIcon={<ExpandMoreIcon />}
-                        id={`article-no-${idx}`}
+                        id={`article-no-${atcIdx}`}
                     >
                         <Box sx={{ flexDirection: 'column' }}>
                             <Typography variant="subtitle2" >
-                                {article._source.title}
+                                {!!article._source.title ? article._source.title : "Không có tiêu đề"}
                             </Typography>
                             <Typography variant="caption" >
-                                {article._source.time}
+                                {!!article._source.time ? article._source.time : "Không rõ thời gian"}
                             </Typography>
                         </Box>
                     </AccordionSummary>
                     <AccordionDetails>
-                        {this.getArticleContent(idx).map((currentArticle) => {
-                            console.log(currentArticle);
+                        {this.getArticleContent(atcIdx).map((currentArticle) => {
                             return currentArticle.type === EvidenceType.Sentence ? <p
                                 className={`tg-sentence`}
                                 style={{ padding: "5px" }}
                                 onClick={() => {
-                                    this.setState({
-                                        evidenceSets: evidenceSets.map((set, idx): EvidenceItem[] => {
-                                            if (idx !== currentSetIdx) return set;
-                                            else return [
-                                                ...evidenceSets[idx],
-                                                currentArticle,
-                                            ]
+                                    if (evidenceSets.length <= currentSetIdx) {
+                                        evidenceSets.push([currentArticle]);
+                                        this.setState({
+                                            evidenceSets: evidenceSets,
+                                            currentTab: this.state.currentTab + 1
+                                        });
+                                    } else {
+                                        evidenceSets[currentSetIdx].push(currentArticle);
+                                        this.setState({
+                                            evidenceSets: evidenceSets
                                         })
-                                    })
+                                    }
                                 }}
                             >
                                 <Typography variant="caption"  >
@@ -325,14 +400,24 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
                             </p> : <TableContainer component={Paper}>
                                 <Table sx={{ minWidth: 650 }} aria-label="simple table">
                                     <TableBody>
-                                        {(!!currentArticle && !!currentArticle.content && !!currentArticle.content.table && Array.isArray(currentArticle.content.table)) && currentArticle.content.table.map((row: any, idx: number) => (
+                                        {(!!currentArticle && !!currentArticle.content && !!currentArticle.content.table && Array.isArray(currentArticle.content.table)) && currentArticle.content.table.map((row: any, rowIdx: number) => (
                                             <TableRow
-                                                key={`table-row-${idx}`}
+                                                key={`table-row-${rowIdx}`}
                                                 sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
                                             >
-                                                {(!!row && Array.isArray(row)) && row.map(cell => <TableCell
+                                                {(!!row && Array.isArray(row)) && row.map((cell, colIdx) => <TableCell
                                                     className={`tg-sentence`}
                                                     style={{ padding: "5px" }}
+                                                    onClick={() => this.onTableCellClicked(
+                                                        atcIdx,
+                                                        currentArticle.articleId,
+                                                        cell.id,
+                                                        currentArticle.pos,
+                                                        rowIdx,
+                                                        colIdx,
+                                                        cell.is_header,
+                                                        cell.value
+                                                    )}
                                                 >
                                                     <Typography variant={(!!cell.id && cell.id.includes("header")) ? `subtitle2` : `caption`} >
                                                         {cell.value}
@@ -350,6 +435,192 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
         })
     }
 
+    private renderModal = () => {
+        const modalStyle: any = {
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            bgcolor: 'background.paper',
+            borderRadius: 2,
+            boxShadow: 24,
+            p: 4,
+            textAlign: "center",
+        };
+
+        return <Modal
+            open={this.state.showSkipModal}
+            onClose={() => this.setState({ showSkipModal: false })}
+            aria-labelledby="modal-modal-title"
+            aria-describedby="modal-modal-description"
+        >
+            <Box sx={modalStyle}>
+                <Typography sx={{ mb: 3 }}>
+                    Bạn có chắc chắn muốn bỏ qua mệnh đề hiện tại?
+                </Typography>
+                <Button
+                    sx={{ mr: 3 }}
+                    variant="contained"
+                    color="error"
+                    onClick={() => this.setState({ showSkipModal: false })}
+                >
+                    Hủy bỏ
+                </Button>
+                <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={() => {
+                        this.props.showTopLoading!();
+                        projectAPI.skipClaim(
+                            parseInt(this.props.match.params.prjid!),
+                            this.state.claimId
+                        ).then(res => {
+                            if (res.status === 201) {
+                                this.props.showSnackBar!(
+                                    "Bỏ qua mệnh đề thành công!",
+                                    5000,
+                                    SnackBarType.Info
+                                );
+                                this.getClaim();
+                            } else {
+                                this.props.showSnackBar!(
+                                    "Bỏ qua mệnh đề thất bại!",
+                                    5000,
+                                    SnackBarType.Error
+                                );
+                                this.props.hideTopLoading!();
+                            }
+                        }).catch(() => {
+                            this.props.showSnackBar!(
+                                "Bỏ qua mệnh đề thất bại!",
+                                5000,
+                                SnackBarType.Error
+                            );
+                            this.props.hideTopLoading!();
+                        })
+                    }}
+                >
+                    Bỏ qua
+                </Button>
+            </Box>
+        </Modal>
+    }
+    private onTableCellClicked = (
+        atcIdx: number, atcEsId: string, cellPos: string, tablePos: string,
+        rowIdx: number, colIdx: number, isHeader: boolean, content: string,
+    ) => {
+        const { searchedArticles, evidenceSets, currentSetIdx } = this.state;
+        if (evidenceSets.length <= currentSetIdx) {
+            if (isHeader) {
+                evidenceSets.push([{
+                    content: content,
+                    articleId: atcEsId,
+                    pos: cellPos,
+                    type: EvidenceType.TableCell,
+                    title: searchedArticles[atcIdx]._source.title ?
+                        searchedArticles[atcIdx]._source.title : "Không có tiêu đề",
+                    time: searchedArticles[atcIdx]._source.time ?
+                        searchedArticles[atcIdx]._source.title : "Không rõ thời gian"
+                }]);
+            } else {
+                const firstEleOfRow = searchedArticles[atcIdx]._source[tablePos].table[rowIdx][0];
+                const firstEleOfCol = searchedArticles[atcIdx]._source[tablePos].table[0][colIdx];
+                const tempSet = [];
+                if (firstEleOfRow.is_header) {
+                    tempSet.push({
+                        content: firstEleOfRow.value,
+                        articleId: atcEsId,
+                        pos: firstEleOfRow.id,
+                        type: EvidenceType.TableCell,
+                        title: searchedArticles[atcIdx]._source.title ?
+                            searchedArticles[atcIdx]._source.title : "Không có tiêu đề",
+                        time: searchedArticles[atcIdx]._source.time ?
+                            searchedArticles[atcIdx]._source.title : "Không rõ thời gian"
+                    });
+                }
+                if (firstEleOfCol.is_header) {
+                    tempSet.push({
+                        content: firstEleOfCol.value,
+                        articleId: atcEsId,
+                        pos: firstEleOfCol.id,
+                        type: EvidenceType.TableCell,
+                        title: searchedArticles[atcIdx]._source.title ?
+                            searchedArticles[atcIdx]._source.title : "Không có tiêu đề",
+                        time: searchedArticles[atcIdx]._source.time ?
+                            searchedArticles[atcIdx]._source.title : "Không rõ thời gian"
+                    });
+                }
+                tempSet.push({
+                    content: content,
+                    articleId: atcEsId,
+                    pos: cellPos,
+                    type: EvidenceType.TableCell,
+                    title: searchedArticles[atcIdx]._source.title ?
+                        searchedArticles[atcIdx]._source.title : "Không có tiêu đề",
+                    time: searchedArticles[atcIdx]._source.time ?
+                        searchedArticles[atcIdx]._source.title : "Không rõ thời gian"
+                });
+                evidenceSets.push(tempSet);
+            }
+            this.setState({
+                evidenceSets: evidenceSets,
+                currentTab: this.state.currentTab + 1
+            });
+        } else {
+            if (isHeader) {
+                evidenceSets[currentSetIdx].push({
+                    content: content,
+                    articleId: atcEsId,
+                    pos: cellPos,
+                    type: EvidenceType.TableCell,
+                    title: searchedArticles[atcIdx]._source.title ?
+                        searchedArticles[atcIdx]._source.title : "Không có tiêu đề",
+                    time: searchedArticles[atcIdx]._source.time ?
+                        searchedArticles[atcIdx]._source.title : "Không rõ thời gian"
+                });
+            } else {
+                const firstEleOfRow = searchedArticles[atcIdx]._source[tablePos].table[rowIdx][0];
+                const firstEleOfCol = searchedArticles[atcIdx]._source[tablePos].table[0][colIdx];
+                if (firstEleOfRow.is_header) {
+                    evidenceSets[currentSetIdx].push({
+                        content: firstEleOfRow.value,
+                        articleId: atcEsId,
+                        pos: firstEleOfRow.id,
+                        type: EvidenceType.TableCell,
+                        title: searchedArticles[atcIdx]._source.title ?
+                            searchedArticles[atcIdx]._source.title : "Không có tiêu đề",
+                        time: searchedArticles[atcIdx]._source.time ?
+                            searchedArticles[atcIdx]._source.title : "Không rõ thời gian"
+                    });
+                }
+                if (firstEleOfCol.is_header) {
+                    evidenceSets[currentSetIdx].push({
+                        content: firstEleOfCol.value,
+                        articleId: atcEsId,
+                        pos: firstEleOfCol.id,
+                        type: EvidenceType.TableCell,
+                        title: searchedArticles[atcIdx]._source.title ?
+                            searchedArticles[atcIdx]._source.title : "Không có tiêu đề",
+                        time: searchedArticles[atcIdx]._source.time ?
+                            searchedArticles[atcIdx]._source.title : "Không rõ thời gian"
+                    });
+                }
+                evidenceSets[currentSetIdx].push({
+                    content: content,
+                    articleId: atcEsId,
+                    pos: cellPos,
+                    type: EvidenceType.TableCell,
+                    title: searchedArticles[atcIdx]._source.title ?
+                        searchedArticles[atcIdx]._source.title : "Không có tiêu đề",
+                    time: searchedArticles[atcIdx]._source.time ?
+                        searchedArticles[atcIdx]._source.title : "Không rõ thời gian"
+                });
+            }
+            this.setState({
+                evidenceSets: evidenceSets
+            })
+        }
+    }
     private renderCurrentClaim = () => {
         return <React.Fragment>
             <Typography
@@ -367,6 +638,50 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
         </React.Fragment>
     }
 
+    private annotateClaim = () => {
+        const { evidenceSets, claimId, label } = this.state;
+        const { showTopLoading, hideTopLoading, showSnackBar } = this.props;
+        if (evidenceSets.length) {
+            const prjId = this.props.match.params.prjid;
+            const evidence: number[][][] = [];
+            evidenceSets.forEach(set => {
+                const reqBodySet: number[][] = [];
+                set.forEach(evd => {
+                    const reqBodyEvd = evd.type === EvidenceType.Sentence ? [
+                        parseInt(evd.articleId),
+                        parseInt(evd.pos.split("_")[1])
+                    ] : [
+                        parseInt(evd.articleId),
+                        parseInt(evd.pos.split("_")[1]),
+                        parseInt(evd.pos.split("_")[2]),
+                        parseInt(evd.pos.split("_")[3]),
+                    ]
+                    reqBodySet.push(reqBodyEvd);
+                })
+            })
+            showTopLoading!();
+            projectAPI.annotateClaim(
+                parseInt(prjId!),
+                claimId,
+                label,
+                evidence
+            ).then(res => {
+                showSnackBar!(
+                    "Chúc mừng bạn đã gán nhãn thành công!",
+                    5000,
+                    SnackBarType.Success
+                );
+                this.getClaim();
+            }).catch(() => hideTopLoading!())
+
+        } else {
+            showSnackBar!(
+                "Vui lòng đưa ra ít nhất một chứng cứ để có thể gán nhãn!",
+                5000,
+                SnackBarType.Error
+            );
+        }
+    }
     private renderSubmitForm = () => {
         return <Stack sx={{ mt: 2 }} direction={{ xs: 'column', sm: 'column', md: 'column', lg: "column", xl: "row" }} spacing={2} >
             <FormControl fullWidth>
@@ -387,66 +702,46 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
                 variant="contained"
                 color="success"
                 sx={{ minWidth: 200 }}
-                onClick={() => {
-                    this.getNewClaim();
-                    this.props.showSnackBar!(
-                        "Gán nhãn thành công!",
-                        10000,
-                        SnackBarType.Success
-                    );
-                }}
+                onClick={this.annotateClaim}
             >
                 Gán nhãn
             </Button>
             <Button
-                onClick={() => {
-                    this.getNewClaim();
-                    this.props.showSnackBar!(
-                        "Đã tải mệnh đề khác!",
-                        10000,
-                        SnackBarType.Info
-                    );
-                }}
+                onClick={() => this.setState({ showSkipModal: true })}
                 variant="contained"
                 sx={{ minWidth: 200 }}
             >
                 Bỏ qua
             </Button>
-        </Stack>
+        </Stack >
     }
 
     private renderEvidences = () => {
-        const { currentTab, evidenceSets, evidenceIds } = this.state;
+        const { currentTab, evidenceSets } = this.state;
         return <React.Fragment>
             <Typography
                 variant="h6"
             >
                 Chứng cứ
             </Typography>
-            {!(evidenceSets.length > 0) ? "Chưa có dữ liệu" : <TabContext value={currentTab} >
+            {!(evidenceSets.length > 0) ? "Chưa có chứng cứ" : <TabContext value={currentTab.toString()} >
                 <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                    <TabList onChange={(_, newVal) => this.setState({ currentTab: newVal })} aria-label="lab API tabs example">
-                        {evidenceIds.map((_, idx) => {
-                            return <Tab label={`Tập ${idx + 1}`} value={(idx).toString()} />;
-                        })}
+                    <TabList onChange={(_, newVal) => this.setState({ currentTab: parseInt(newVal) })} aria-label="lab API tabs example">
+                        {
+                            evidenceSets.map((_, idx) => {
+                                return <Tab
+                                    label={`Tập ${idx + 1}`}
+                                    value={(idx).toString()}
+                                />;
+                            })}
                     </TabList>
                 </Box>
-                {evidenceSets.map((evidenceSet, idx) => {
-                    return <TabPanel sx={{ pt: 0, pb: 0, pr: 1, pl: 1 }} value={(idx).toString()}>
-                        {!(evidenceSets.length > idx) ? <p >Chưa có dữ liệu</p> : <React.Fragment>
-                            <Typography variant="subtitle2" >
-                                {evidenceSet.title}
-                            </Typography>
-                            <Typography variant="caption" >
-                                {evidenceSet.time}
-                            </Typography>
-                            <Box>
-                                <Typography variant="caption"  >
-                                    ID bài báo: {evidenceSet.articleId}
-                                </Typography>
-                            </Box>
-                            {evidenceSet.evidences.map((evidence, ii) => {
+                {evidenceSets.map((evidenceSet, setIdx) => {
+                    return <TabPanel sx={{ pt: 0, pb: 0, pr: 1, pl: 1 }} value={(setIdx).toString()}>
+                        {!(evidenceSets.length > setIdx) ? <p >Chưa có chứng cứ</p> : <React.Fragment>
+                            {evidenceSet.map((evidence, evdIdx) => {
                                 return <React.Fragment>
+
                                     <List dense>
                                         <ListItem
                                             secondaryAction={
@@ -454,21 +749,17 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
                                                     edge="end"
                                                     aria-label="delete"
                                                     onClick={() => {
-                                                        if (evidenceSet.evidences.length === 1) {
+                                                        if (evidenceSet.length === 1) {
+                                                            evidenceSets.splice(setIdx, 1)
                                                             this.setState({
-                                                                evidenceSets: evidenceSets.filter((_, iii) => (iii !== idx)),
-                                                                evidenceIds: evidenceIds.filter((_, iii) => (iii !== idx)),
+                                                                evidenceSets: evidenceSets,
+                                                                currentTab: this.state.currentTab - 1
                                                             })
                                                         } else {
+                                                            evidenceSets[setIdx].splice(evdIdx, 1);
                                                             this.setState({
-                                                                evidenceSets: evidenceSets.map((se, iii) => {
-                                                                    if (iii !== idx) return se;
-                                                                    else return {
-                                                                        ...se,
-                                                                        evidences: se.evidences.filter((_, jj) => jj !== ii)
-                                                                    }
-                                                                })
-                                                            })
+                                                                evidenceSets: evidenceSets
+                                                            });
                                                         }
                                                     }}
                                                 >
@@ -482,8 +773,25 @@ class AnnotateClaims extends React.Component<IAnnotateClaimsProps, IAnnotateClai
                                                 </Avatar>
                                             </ListItemAvatar>
                                             <ListItemText
-                                                primary={evidence.pos}
-                                                secondary={evidence.content}
+                                                primary={evidence.content}
+                                                secondary={
+                                                    <Box>
+                                                        <Typography variant="caption" >
+                                                            Tiêu đề:&nbsp;{!!evidence.title ? evidence.title : "Không có tiêu đề"}
+                                                            &nbsp;-&nbsp;
+                                                            {!!evidence.time ? evidence.time : "Không rõ thời gian"}
+                                                        </Typography>
+                                                        <Box>
+                                                            <Typography variant="caption"  >
+                                                                ID bài báo: {evidence.articleId}.
+                                                                &nbsp;
+                                                            </Typography>
+                                                            <Typography variant="caption"  >
+                                                                Vị trí trong bài báo: {evidence.pos}
+                                                            </Typography>
+                                                        </Box>
+                                                    </Box>
+                                                }
                                             />
                                         </ListItem>
                                     </List>

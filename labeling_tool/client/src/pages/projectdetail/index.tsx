@@ -52,13 +52,15 @@ class ProjectDetail extends React.Component<IProjectDetailProps, IProjectDetailS
         }
     }
     public componentDidMount() {
+        this.initData();
+    }
+    private initData = () => {
         const prjId = this.props.match.params.prjid;
         if (!!prjId) {
             this.props.showTopLoading!();
             projectAPI
                 .getPrjDetail(prjId)
                 .then((res: any) => {
-                    console.log(res);
                     if (res && res.data && res.status && res.status === 200) {
                         this.setState({ prjDetail: res.data });
                     } else {
@@ -127,6 +129,9 @@ class ProjectDetail extends React.Component<IProjectDetailProps, IProjectDetailS
                         </Typography>
                         <p>Số thành viên tham gia dự án: </p>
                         <Link
+                            onClick={() => {
+                                this.setState({ showMemberModal: true });
+                            }}
                             sx={{
                                 cursor: "pointer",
                             }}
@@ -140,7 +145,7 @@ class ProjectDetail extends React.Component<IProjectDetailProps, IProjectDetailS
                                 this.setState({ showMemberModal: true });
                             }}
                         >
-                            Thêm thành viên
+                            Quản lý thành viên
                         </Button>
                     </Paper>
                     <Paper className={`section section-claim`}>
@@ -289,7 +294,24 @@ class ProjectDetail extends React.Component<IProjectDetailProps, IProjectDetailS
                     aria-describedby="modal-modal-description"
                 >
                     <Box sx={modalStyle}>
-                        <ProjectMemberModal prjId={this.state.prjDetail.project_id} />
+                        <ProjectMemberModal
+                            reloadDetailPage={this.initData}
+                            closeModal={() => this.setState({ showMemberModal: false })}
+                            prjMembers={
+                                (prjDetail.project_member) ?
+                                    prjDetail.project_member.map((item: any) => {
+                                        return {
+                                            id: item.id,
+                                            email: item.email,
+                                            name: item.full_name,
+                                        }
+                                    }) : []
+                            }
+                            showTopLoading={this.props.showTopLoading}
+                            hideTopLoading={this.props.hideTopLoading}
+                            ownerId={(prjDetail.project_owner && prjDetail.project_owner.id) ? prjDetail.project_owner.id : -1}
+                            prjId={parseInt(this.props.match.params.prjid!)}
+                        />
                     </Box>
                 </Modal>
             </div >
@@ -304,7 +326,7 @@ const modalStyle: any = {
     bgcolor: 'background.paper',
     borderRadius: 2,
     boxShadow: 24,
-    p: 4,
+    p: 2,
     textAlign: "center",
 };
 export default connect(null, mapDispatcherToProps)(ProjectDetail);

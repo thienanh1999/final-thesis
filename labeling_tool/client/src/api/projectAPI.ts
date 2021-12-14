@@ -72,12 +72,43 @@ class ProjectAPI {
         return API.post(url, reqBody);
     };
     annotateClaim = (
-        projectId: number,
+        prjId: number,
         claimId: number,
-        label: LabelType
-
+        label: LabelType,
+        evidence: number[][][],
     ) => {
+        const url = "/claim_verification/";
+        const reqBody: any = {
+            project_id: prjId,
+            claim_id: claimId,
+            label: label === LabelType.NotEnoughInfo ?
+                "NEI" : label === LabelType.Refute ?
+                    "REFUTED" : "SUPPORTED",
+            evidence: evidence,
+            annotator_operation: [
+                [
+                    {
+                        operation: "start",
+                        value: ["start"],
+                        time: 0.0
+                    }
+                ]
+            ]
+        };
+        return API.post(url, reqBody);
+    }
+    skipClaim = (prjId: number, claimId: number) => {
+        const url = `/claim_verification/${claimId}/skip/`;
+        return API.post(url, { project_id: prjId });
+    }
+    addMembers = (prjId: number, memberIds: number[]) => {
+        const url = "/project_member/";
+        return API.post(url, { project_id: prjId, user_ids: memberIds });
 
+    }
+    removeMembers = (prjId: number, memberIds: number[]) => {
+        const url = "/project_member/";
+        return API.delete(url, { data: { project_id: prjId, user_ids: memberIds } });
     }
 }
 

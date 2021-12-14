@@ -8,102 +8,193 @@ import Checkbox from '@mui/material/Checkbox';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import userAPI from '../api/userAPI';
-import { CircularProgress } from '@mui/material';
+import { Box, CircularProgress, Typography } from '@mui/material';
+import projectAPI from '../api/projectAPI';
 
-function not(a: readonly string[], b: readonly string[]) {
-    return a.filter((value) => b.indexOf(value) === -1);
+interface UserBasicInfo {
+    id: number;
+    name: string;
+    email: string;
 }
 
-function intersection(a: readonly string[], b: readonly string[]) {
-    return a.filter((value) => b.indexOf(value) !== -1);
+interface IProjectMemberModalProps {
+    showTopLoading?: () => void;
+    hideTopLoading?: () => void;
+    closeModal: () => void;
+    reloadDetailPage: () => void;
+    prjMembers: UserBasicInfo[];
+    ownerId: number;
+    prjId: number;
 }
 
-interface IProjectMemberModal {
-    prjId: string
+interface IProjectMemberModalState {
+    leftMembers: UserBasicInfo[];
+    rightMembers: UserBasicInfo[];
+    loading: boolean;
+    leftChecked: number[];
+    rightChecked: number[];
 }
 
-export default function ProjectMemberModal(props: IProjectMemberModal) {
-    const [checked, setChecked] = useState<readonly string[]>([]);
-    const [left, setLeft] = useState<readonly string[]>(["Vũ Thiên Trung Hiếu", "Vũ Thị Thiên Hương", "Ngô Nhật Minh"]);
-    const [right, setRight] = useState<readonly string[]>(["Vũ Thị Thiên Anh"]);
-    const [loading, setLoading] = useState<boolean>(false);
+export default class ProjectMemberModal extends React.Component<IProjectMemberModalProps, IProjectMemberModalState> {
+    constructor(props: IProjectMemberModalProps) {
+        super(props);
+        this.state = {
+            leftMembers: [],
+            rightMembers: props.prjMembers,
+            loading: true,
+            leftChecked: [],
+            rightChecked: [],
+        }
+    }
 
-    const leftChecked = intersection(checked, left);
-    const rightChecked = intersection(checked, right);
-
-    useEffect(() => {
-        setLoading(true);
+    componentDidMount() {
+        const { prjMembers } = this.props;
         userAPI
             .getAllUsers()
             .then(res => {
-                console.log(res);
-            })
-            .catch(err => {
-                console.log(err);
-            })
-            .finally(() => { setLoading(false) })
-    }, []);
+                if (res && res.data && res.data.result === 200 && res.data.users && Array.isArray(res.data.users) && res.data.users.length > 0) {
+                    const notPrjMembers: UserBasicInfo[] = [];
+                    let ok: boolean = false;
+                    res.data.users.forEach((fetchedUser: any) => {
+                        ok = true;
+                        for (let i = 0; i < prjMembers.length; ++i) {
+                            if (prjMembers[i].id === fetchedUser.id) {
+                                ok = false;
+                                break;
+                            }
+                        }
+                        if (ok) {
+                            notPrjMembers.push({
+                                id: fetchedUser.id,
+                                email: fetchedUser.email,
+                                name: fetchedUser.full_name,
+                            })
+                        }
+                    })
+                    this.setState({
+                        leftMembers: notPrjMembers
+                    })
+                }
+            }).finally(() => this.setState({ loading: false }));
+    }
 
 
-    const handleToggle = (value: string) => () => {
-        const currentIndex = checked.indexOf(value);
+    private onLeftUserToggled = (userId: number) => () => {
+        const { leftChecked: checked } = this.state;
+        const currentIndex = checked.indexOf(userId);
         const newChecked = [...checked];
 
         if (currentIndex === -1) {
-            newChecked.push(value);
+            newChecked.push(userId);
         } else {
             newChecked.splice(currentIndex, 1);
         }
 
-        setChecked(newChecked);
+        this.setState({ leftChecked: newChecked });
     };
 
-    const handleAllRight = () => {
-        setRight(right.concat(left));
-        setLeft([]);
+    private onRightUserToggled = (userId: number, isOwner: boolean) => () => {
+        if (!isOwner) {
+            const { rightChecked: checked } = this.state;
+            const currentIndex = checked.indexOf(userId);
+            const newChecked = [...checked];
+
+            if (currentIndex === -1) {
+                newChecked.push(userId);
+            } else {
+                newChecked.splice(currentIndex, 1);
+            }
+
+            this.setState({ rightChecked: newChecked });
+        }
+
     };
 
-    const handleCheckedRight = () => {
-        setRight(right.concat(leftChecked));
-        setLeft(not(left, leftChecked));
-        setChecked(not(checked, leftChecked));
+    private onAllRightClicked = () => {
+        this.setState({
+            rightMembers: this.state.rightMembers.concat(this.state.leftMembers),
+            leftMembers: [],
+        })
     };
 
-    const handleCheckedLeft = () => {
-        setLeft(left.concat(rightChecked));
-        setRight(not(right, rightChecked));
-        setChecked(not(checked, rightChecked));
+    private handleCheckedRight = () => {
+        const { leftChecked, leftMembers, rightMembers } = this.state;
+        const leftCheckedUsers: UserBasicInfo[] = [];
+        const leftUnCheckedUsers: UserBasicInfo[] = [];
+        leftMembers.forEach(mem => {
+            if (leftChecked.includes(mem.id)) leftCheckedUsers.push(mem)
+            else leftUnCheckedUsers.push(mem);
+        });
+        this.setState({
+            rightMembers: rightMembers.concat(leftCheckedUsers),
+            leftMembers: leftUnCheckedUsers,
+            leftChecked: [],
+        })
     };
 
-    const handleAllLeft = () => {
-        setLeft(left.concat(right));
-        setRight([]);
+    private handleCheckedLeft = () => {
+        const { leftMembers, rightChecked, rightMembers } = this.state;
+        const rightCheckedUsers: UserBasicInfo[] = [];
+        const rightUnCheckedUsers: UserBasicInfo[] = [];
+        rightMembers.forEach(mem => {
+            if (rightChecked.includes(mem.id)) rightCheckedUsers.push(mem)
+            else rightUnCheckedUsers.push(mem);
+        });
+        this.setState({
+            leftMembers: leftMembers.concat(rightCheckedUsers),
+            rightMembers: rightUnCheckedUsers,
+            rightChecked: [],
+        })
     };
 
-    const customList = (items: readonly string[]) => (
+    // private onAllLeftClicked = () => {
+    //     this.setState({
+    //         leftMembers: this.state.leftMembers.concat(this.state.rightMembers),
+    //         rightMembers: [],
+    //     })
+    // };
+
+    private customList = (items: UserBasicInfo[], isLeft: boolean) => (
         <Paper sx={{ width: 400, height: 300, overflow: 'auto' }}>
+            <Typography
+                variant='subtitle2'
+                sx={{ mt: 2 }}
+            >
+                {isLeft ? "Thành viên khác" : "Thành viên trong dự án"}
+            </Typography>
             <List dense component="div" role="list">
-                {items.map((value: string) => {
-                    const labelId = `transfer-list-item-${value}-label`;
+                {items.map((userInfo: UserBasicInfo) => {
+                    const labelId = `transfer-list-item-${userInfo.id}-label`;
 
                     return (
                         <ListItem
-                            key={value}
+                            key={userInfo.id}
                             role="listitem"
                             button
-                            onClick={handleToggle(value)}
+                            onClick={isLeft ?
+                                this.onLeftUserToggled(userInfo.id) :
+                                this.onRightUserToggled(userInfo.id, this.props.ownerId === userInfo.id)
+                            }
                         >
                             <ListItemIcon>
                                 <Checkbox
-                                    checked={checked.indexOf(value) !== -1}
+                                    checked={isLeft ?
+                                        this.state.leftChecked.indexOf(userInfo.id) !== -1 :
+                                        this.state.rightChecked.indexOf(userInfo.id) !== -1
+                                    }
                                     tabIndex={-1}
                                     disableRipple
+                                    disabled={this.props.ownerId === userInfo.id}
                                     inputProps={{
                                         'aria-labelledby': labelId,
                                     }}
                                 />
                             </ListItemIcon>
-                            <ListItemText id={labelId} primary={`${value}`} />
+                            <ListItemText
+                                id={labelId}
+                                primary={`${userInfo.name}${this.props.ownerId === userInfo.id ? " (Trưởng dự án)" : ""}`}
+                                secondary={userInfo.email}
+                            />
                         </ListItem>
                     );
                 })}
@@ -112,58 +203,95 @@ export default function ProjectMemberModal(props: IProjectMemberModal) {
         </Paper>
     );
 
-    return (
-        !loading ?
-            <Grid container spacing={2} justifyContent="center" alignItems="center">
-                <Grid item>{customList(left)}</Grid>
-                <Grid item>
-                    <Grid container direction="column" alignItems="center">
-                        <Button
+    render() {
+        const { loading, leftMembers, rightMembers, leftChecked, rightChecked } = this.state;
+        return !loading ?
+            <Box>
+                <Typography
+
+                    variant='h6'
+
+                    sx={{ mb: 2 }}>
+                    Quản lý thành viên dự án
+                </Typography>
+                <Grid container spacing={2} justifyContent="center" alignItems="center" >
+                    <Grid item>{this.customList(leftMembers, true)}</Grid>
+                    <Grid item>
+                        <Grid container direction="column" alignItems="center">
+                            <Button
+                                sx={{ my: 0.5 }}
+                                variant="outlined"
+                                size="small"
+                                onClick={this.onAllRightClicked}
+                                disabled={leftMembers.length === 0}
+                                aria-label="move all right"
+                            >
+                                ≫
+                            </Button>
+                            <Button
+                                sx={{ my: 0.5 }}
+                                variant="outlined"
+                                size="small"
+                                onClick={this.handleCheckedRight}
+                                disabled={leftChecked.length === 0}
+                                aria-label="move selected right"
+                            >
+                                &gt;
+                            </Button>
+                            <Button
+                                sx={{ my: 0.5 }}
+                                variant="outlined"
+                                size="small"
+                                onClick={this.handleCheckedLeft}
+                                disabled={rightChecked.length === 0}
+                                aria-label="move selected left"
+                            >
+                                &lt;
+                            </Button>
+                            {/* <Button
                             sx={{ my: 0.5 }}
                             variant="outlined"
                             size="small"
-                            onClick={handleAllRight}
-                            disabled={left.length === 0}
-                            aria-label="move all right"
-                        >
-                            ≫
-                        </Button>
-                        <Button
-                            sx={{ my: 0.5 }}
-                            variant="outlined"
-                            size="small"
-                            onClick={handleCheckedRight}
-                            disabled={leftChecked.length === 0}
-                            aria-label="move selected right"
-                        >
-                            &gt;
-                        </Button>
-                        <Button
-                            sx={{ my: 0.5 }}
-                            variant="outlined"
-                            size="small"
-                            onClick={handleCheckedLeft}
-                            disabled={rightChecked.length === 0}
-                            aria-label="move selected left"
-                        >
-                            &lt;
-                        </Button>
-                        <Button
-                            sx={{ my: 0.5 }}
-                            variant="outlined"
-                            size="small"
-                            onClick={handleAllLeft}
-                            disabled={right.length === 0}
+                            onClick={this.onAllLeftClicked}
+                            disabled={rightMembers.length === 0}
                             aria-label="move all left"
                         >
                             ≪
-                        </Button>
+                        </Button> */}
+                        </Grid>
                     </Grid>
+                    <Grid item>{this.customList(rightMembers, false)}</Grid>
                 </Grid>
-                <Grid item>{customList(right)}</Grid>
-            </Grid >
+                <Button
+                    variant="contained"
+                    color="success"
+                    onClick={this.props.closeModal}
+                    sx={{ mt: 2, mr: 2 }}>
+                    Hủy bỏ
+                </Button>
+                <Button
+                    variant="contained"
+                    color="info"
+                    onClick={async () => {
+                        const { rightMembers } = this.state;
+                        const { prjMembers } = this.props;
+                        this.props.showTopLoading!();
+                        const addedUserIds = rightMembers.filter(m => !prjMembers.map(p => p.id).includes(m.id)).map(k => k.id);
+                        const removedUserIds = prjMembers.filter(m => !rightMembers.map(p => p.id).includes(m.id)).map(k => k.id);
+                        if (addedUserIds.length) {
+                            await projectAPI.addMembers(this.props.prjId, addedUserIds)
+                        }
+                        if (removedUserIds.length) {
+                            await projectAPI.removeMembers(this.props.prjId, removedUserIds)
+                        }
+                        this.props.reloadDetailPage();
+                        this.props.closeModal();
+                    }}
+                    sx={{ mt: 2 }}>
+                    Lưu
+                </Button>
+            </Box>
             :
             <CircularProgress />
-
-    );
+    }
 }
