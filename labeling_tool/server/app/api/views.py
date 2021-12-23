@@ -38,7 +38,7 @@ class UserRegisterView(APIView):
                 serializer.validated_data['password'])
             serializer.save()
 
-            user = User.objects.filter(email=request.data['email']).first()
+            user = User.objects.filter(email=request.data['email'], is_deleted=False).first()
             result = user.to_dict()
             result['phone'] = user.phone
             result['gender'] = "MALE" if user.gender == 0 else "FEMALE"
@@ -95,10 +95,10 @@ class UserLogoutView(APIView):
 class SearchMemberView(APIView):
     @staticmethod
     def get(request):
-        user = User.objects.filter(email=request.user).first()
+        user = User.objects.filter(email=request.user, is_deleted=False).first()
         if user is None:
             return Response({}, status.HTTP_401_UNAUTHORIZED)
-        users = User.objects.filter(full_name=request.data['full_name'])
+        users = User.objects.filter(full_name=request.data['full_name'], is_deleted=False)
         data = []
         for u in users:
             data.append(u.to_dict())
@@ -108,19 +108,20 @@ class SearchMemberView(APIView):
 
 
 class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
+    queryset = User.objects.filter(is_deleted=False)
 
     @is_admin
     def destroy(self, request, pk=None):
-        user = self.queryset.filter(pk=pk).first()
+        user = self.queryset.filter(pk=pk).filter(is_detelted=False).first()
         if user is None:
             return Response({}, status.HTTP_404_NOT_FOUND)
-        user.delete()
+        user.is_deleted = True
+        user.save()
         return Response({}, status.HTTP_204_NO_CONTENT)
 
     @auth
     def list(self, request):
-        queryset = self.queryset
+        queryset = self.queryset.filter(is_deleted=False)
         pagination = PageNumberPagination()
         users = pagination.paginate_queryset(queryset, request)
         result = []
@@ -135,7 +136,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @auth
     def retrieve(self, request, pk=None):
-        user = self.queryset.filter(pk=pk).first()
+        user = self.queryset.filter(pk=pk).filter(is_deleted=False).first()
         if user is None:
             return Response({}, status.HTTP_404_NOT_FOUND)
         return Response(user.to_dict(), status.HTTP_200_OK)
@@ -155,7 +156,7 @@ class UserViewSet(viewsets.ModelViewSet):
 class ChangePasswordView(APIView):
     @staticmethod
     def put(request):
-        user = User.objects.filter(email=request.user).first()
+        user = User.objects.filter(email=request.user, is_deleted=False).first()
         if user is None:
             return Response({}, status.HTTP_401_UNAUTHORIZED)
         if request.data.get('password') is None:
@@ -170,7 +171,7 @@ class ChangePasswordView(APIView):
 class UpdateUserProfileView(APIView):
     @staticmethod
     def put(request):
-        user = User.objects.filter(email=request.user).first()
+        user = User.objects.filter(email=request.user, is_deleted=False).first()
         if user is None:
             return Response({}, status.HTTP_401_UNAUTHORIZED)
         if request.data.get('full_name') is not None:
@@ -238,14 +239,14 @@ class FileUploadView(APIView):
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
-    queryset = Project.objects.all()
+    queryset = Project.objects.filter(is_deleted=False)
     serializer_class = ProjectSerializer
 
     @auth
     @parser_classes([MultiPartParser])
     @transaction.atomic
     def create(self, request):
-        user = User.objects.filter(email=request.user).first()
+        user = User.objects.filter(email=request.user, is_deleted=False).first()
         serializer = self.serializer_class(data=request.data)
         project = self.queryset.filter(es_id=request.data['es_id']).first()
 
@@ -325,7 +326,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     @auth
     def list(self, request):
-        user = User.objects.filter(email=request.user).first()
+        user = User.objects.filter(email=request.user, is_deleted=False).first()
         project_members = ProjectMember.objects.filter(user=user)
         projects = []
         for project_member in project_members:
@@ -339,9 +340,43 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @is_admin
     def list_all(self, request):
         queryset = self.queryset
+        pagination = PageNumberPagination()
+        projects = pagination.paginate_queryset(queryset, request)
+        result = []
+        for project in projects:
+            result.append(project.to_dict())
         return Response({
-
+            'count': pagination.page.paginator.count,
+            'previous': pagination.get_previous_link(),
+            'next': pagination.get_next_link(),
+            'results': result
         }, status.HTTP_200_OK)
+
+    @auth
+    def update(self, request, pk=None):
+        project = self.queryset.filter(pk=pk).first()
+        if project is None:
+            return Response({}, status.HTTP_404_NOT_FOUND)
+        user = User.objects.filter(email=request.user).first()
+        if user.is_superuser or project.owner == user:
+            update_model(project, request.data, ['name', 'description', 'num_sequence_highlight',
+                                                 'min_table_row_highlight', 'max_table_row_highlight', 'k', 'b1'])
+            return Response(project.to_dict(), status.HTTP_201_CREATED)
+        else:
+            return Response({}, status.HTTP_403_FORBIDDEN)
+
+    @auth
+    def destroy(self, request, pk=None):
+        project = self.queryset.filter(pk=pk).first()
+        if project is None:
+            return Response({}, status.HTTP_404_NOT_FOUND)
+        user = User.objects.filter(email=request.user).first()
+        if user.is_superuser or project.owner == user:
+            project.is_deleted = True
+            project.save()
+            return Response({}, status.HTTP_204_NO_CONTENT)
+        else:
+            return Response({}, status.HTTP_403_FORBIDDEN)
 
     @action(methods=['post'], detail=False)
     @is_project_member
@@ -409,11 +444,11 @@ class ProjectMemberViewSet(viewsets.ModelViewSet):
 
     @is_project_owner
     def create(self, request):
-        project = Project.objects.filter(id=request.data['project_id']).first()
+        project = Project.objects.filter(id=request.data['project_id'], is_deleted=False).first()
         user_ids = request.data['user_ids']
         project_members = []
         for user_id in user_ids:
-            user = User.objects.filter(pk=user_id).first()
+            user = User.objects.filter(pk=user_id, is_deleted=False).first()
             if user is None:
                 return Response({
                     'errors': 'User ' + str(user_id) + ' is not exist'
@@ -434,7 +469,7 @@ class ProjectMemberViewSet(viewsets.ModelViewSet):
     @action(methods=['delete'], detail=False)
     @is_project_owner
     def delete(self, request):
-        project = Project.objects.filter(id=request.data['project_id']).first()
+        project = Project.objects.filter(id=request.data['project_id'], is_deleted=False).first()
         user_ids = request.data['user_ids']
         project_members = []
         for user_id in user_ids:
@@ -465,7 +500,7 @@ class ClaimViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     @is_project_member
     def highlight(self, request, pk=None):
-        project = Project.objects.filter(id=request.data['project_id']).first()
+        project = Project.objects.filter(id=request.data['project_id'], is_deleted=False).first()
         query_set = Document.objects.filter(project=project, is_processed=False)
         if query_set.count() == 0:
             return Response({
@@ -571,7 +606,7 @@ class ClaimViewSet(viewsets.ModelViewSet):
     @is_project_member
     def create(self, request):
         user = User.objects.filter(email=request.user).first()
-        project = Project.objects.filter(id=request.data['project_id']).first()
+        project = Project.objects.filter(id=request.data['project_id'], is_deleted=False).first()
         document = Document.objects.filter(id=request.data['document_id'], is_processed=True, project=project).first()
         if document is None:
             return Response({
@@ -595,7 +630,7 @@ class ClaimViewSet(viewsets.ModelViewSet):
 
     @is_project_member
     def list(self, request):
-        project = Project.objects.filter(id=request.data['project_id']).first()
+        project = Project.objects.filter(id=request.data['project_id'], is_deleted=False).first()
         user = User.objects.filter(email=request.user).first()
         claims = Claim.objects.filter(project=project, created_by=user)
         pagination = PageNumberPagination()
@@ -642,7 +677,7 @@ class EvidenceViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["post"])
     @is_project_member
     def get_claim(self, request, pk=None):
-        project = Project.objects.filter(id=request.data['project_id']).first()
+        project = Project.objects.filter(id=request.data['project_id'], is_deleted=False).first()
         user = User.objects.filter(email=request.user).first()
         claim = Claim.objects.filter(label='PICKED', project=project, annotated_by=user).first()
         if claim is not None:
@@ -677,7 +712,7 @@ class EvidenceViewSet(viewsets.ModelViewSet):
             return Response({
                 'errors': 'claim is not exist'
             }, status.HTTP_404_NOT_FOUND)
-        project = Project.objects.filter(pk=request.data['project_id']).first()
+        project = Project.objects.filter(pk=request.data['project_id'], is_deleted=False).first()
         if claim.project != project:
             return Response({
                 'errors': 'claim is not in project'
@@ -701,7 +736,7 @@ class EvidenceViewSet(viewsets.ModelViewSet):
     @transaction.atomic
     def create(self, request):
         user = User.objects.filter(email=request.user).first()
-        project = Project.objects.filter(id=request.data['project_id']).first()
+        project = Project.objects.filter(id=request.data['project_id'], is_deleted=False).first()
         claim = Claim.objects.filter(
             id=request.data['claim_id'], project=project).first()
         if claim is None:
@@ -819,7 +854,7 @@ class EvidenceViewSet(viewsets.ModelViewSet):
 
 
 def get_project_info(project_id):
-    project = Project.objects.filter(id=project_id).first()
+    project = Project.objects.filter(id=project_id, is_deleted=False).first()
     if project is None:
         return None
     project_members = ProjectMember.objects.filter(project=project)
