@@ -7,6 +7,7 @@ from rest_framework import routers
 
 
 router = routers.DefaultRouter()
+router.register(r'user', UserViewSet)
 router.register(r'project', ProjectViewSet)
 router.register(r'project_member', ProjectMemberViewSet)
 router.register(r'claim_generation', ClaimViewSet)
@@ -18,7 +19,6 @@ urlpatterns = [
     path('auth/login', UserLoginView.as_view()),
     path('auth/logout', UserLoginView.as_view()),
     path('user/search', SearchMemberView.as_view()),
-    path('user', UserViewSet.as_view()),
     path('upload', FileUploadView.as_view()),
     path('', include(router.urls)),
 ]

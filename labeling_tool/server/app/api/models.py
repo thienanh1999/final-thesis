@@ -7,7 +7,6 @@ class User(AbstractUser):
     username = None
     last_login = None
     is_staff = None
-    is_superuser = None
 
     password = models.CharField(max_length=100)
     full_name = models.CharField(max_length=100)
@@ -25,7 +24,9 @@ class User(AbstractUser):
         return {
             'id': self.id,
             'email': self.email,
-            'full_name': self.full_name
+            'full_name': self.full_name,
+            'gender': self.gender,
+            'phone': self.phone
         }
 
 

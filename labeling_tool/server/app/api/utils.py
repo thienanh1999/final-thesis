@@ -2,6 +2,7 @@ import functools
 
 from .models import *
 from rest_framework.response import Response
+from rest_framework import status
 
 
 def is_user_in_project(user_id, project_id):
@@ -35,7 +36,7 @@ def auth(func):
     def execute(view_set, request, *args, **kwargs):
         user = User.objects.filter(email=request.user).first()
         if user is None:
-            return Response({}, 401)
+            return Response({}, status.HTTP_401_UNAUTHORIZED)
         return func(view_set, request, *args, **kwargs)
 
     return execute
@@ -49,10 +50,10 @@ def is_project_member(func):
         user = User.objects.filter(email=request.user).first()
         project = Project.objects.filter(pk=request.data['project_id']).first()
         if project is None:
-            return Response({'error': 'Project is not exist.'}, 404)
+            return Response({'error': 'Project is not exist.'}, status.HTTP_404_NOT_FOUND)
         project_member = ProjectMember.objects.filter(user=user, project=project).first()
         if project_member is None:
-            return Response({'error': 'User is not a project member.'}, 403)
+            return Response({'error': 'User is not a project member.'}, status.HTTP_403_FORBIDDEN)
         return func(view_set, request, *args, **kwargs)
 
     return execute
@@ -66,7 +67,27 @@ def is_project_owner(func):
         user = User.objects.filter(email=request.user).first()
         project = Project.objects.filter(pk=request.data['project_id']).first()
         if project.owner != user:
-            return Response({'error': 'This action is for project owner only.'}, 403)
+            return Response({'errors': 'This action is for project owner only.'}, status.HTTP_403_FORBIDDEN)
         return func(view_set, request, *args, **kwargs)
 
     return execute
+
+
+def is_admin(func):
+
+    @functools.wraps(func)
+    @auth
+    def execute(view_set, request, *args, **kwargs):
+        user = User.objects.filter(email=request.user).first()
+        if not user.is_superuser:
+            return Response({'errors': 'This site is for admin only'}, status.HTTP_403_FORBIDDEN)
+        return func(view_set, request, *args, **kwargs)
+
+    return execute
+
+
+def update_model(obj, data, fields):
+    for field in fields:
+        if data.get(field) is not None:
+            setattr(obj, field, data[field])
+    obj.save()

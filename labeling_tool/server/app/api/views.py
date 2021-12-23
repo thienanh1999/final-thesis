@@ -5,11 +5,9 @@ import random
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.decorators import action, parser_classes
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -18,7 +16,7 @@ from .serializers import UserSerializer, UserLoginSerializer, ProjectSerializer,
     ClaimSerializer
 from django.conf import settings
 from .utils import *
-from rest_framework.parsers import MultiPartParser, FileUploadParser
+from rest_framework.parsers import MultiPartParser
 from elasticsearch import Elasticsearch, helpers
 from django.db import transaction
 import requests
@@ -115,22 +113,49 @@ class SearchMemberView(APIView):
         })
 
 
-class UserViewSet(APIView):
-    @staticmethod
-    def get(request):
-        user = User.objects.filter(email=request.user).first()
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+
+    @is_admin
+    def destroy(self, request, pk=None):
+        user = self.queryset.filter(pk=pk).first()
         if user is None:
-            return Response({
-                'result': 401
-            })
-        users = User.objects.all()
-        data = []
-        for u in users:
-            data.append(u.to_dict())
+            return Response({}, status.HTTP_404_NOT_FOUND)
+        user.delete()
+        return Response({}, status.HTTP_204_NO_CONTENT)
+
+    @auth
+    def list(self, request):
+        queryset = self.queryset
+        pagination = PageNumberPagination()
+        users = pagination.paginate_queryset(queryset, request)
+        result = []
+        for user in users:
+            result.append(user.to_dict())
         return Response({
-            'result': 200,
-            'users': data
-        })
+            'count': pagination.page.paginator.count,
+            'previous': pagination.get_previous_link(),
+            'next': pagination.get_next_link(),
+            'results': result
+        }, status.HTTP_200_OK)
+
+    @auth
+    def retrieve(self, request, pk=None):
+        user = self.queryset.filter(pk=pk).first()
+        if user is None:
+            return Response({}, status.HTTP_404_NOT_FOUND)
+        return Response(user.to_dict(), status.HTTP_200_OK)
+
+    @is_admin
+    def update(self, request, pk=None):
+        user = self.queryset.filter(pk=pk).first()
+        if user is None:
+            return Response({}, status.HTTP_404_NOT_FOUND)
+        try:
+            update_model(user, request.data, ['phone', 'gender', 'full_name'])
+            return Response(user.to_dict(), status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'errors': str(e)}, status.HTTP_400_BAD_REQUEST)
 
 
 class ChangePasswordView(APIView):
