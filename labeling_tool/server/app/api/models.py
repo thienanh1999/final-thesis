@@ -26,7 +26,8 @@ class User(AbstractUser):
             'email': self.email,
             'full_name': self.full_name,
             'gender': self.gender,
-            'phone': self.phone
+            'phone': self.phone,
+            'is_superuser': self.is_superuser
         }
 
 

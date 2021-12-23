@@ -47,7 +47,6 @@ class UserRegisterView(APIView):
         else:
             return JsonResponse({
                 'message': 'This email or phone has already exist!',
-                'result': 400,
             }, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -68,6 +67,7 @@ class UserLoginView(APIView):
                     'result': 201,
                     'email': str(user),
                     'user_id': int(user.id),
+                    'is_superuser': user.is_superuser,
                     'refresh_token': str(refresh),
                     'access_token': str(refresh.access_token),
                     'access_expires': int(settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'].total_seconds()),
@@ -77,12 +77,10 @@ class UserLoginView(APIView):
 
             return Response({
                 'message': 'Email or password is incorrect!',
-                'result': 400
             }, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({
             'message': serializer.errors,
-            'result': 400
         }, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -91,7 +89,6 @@ class UserLogoutView(APIView):
     def post():
         return Response({
             'message': 'Logout successfully!',
-            'result': 200
         }, status=status.HTTP_200_OK)
 
 
@@ -100,17 +97,14 @@ class SearchMemberView(APIView):
     def get(request):
         user = User.objects.filter(email=request.user).first()
         if user is None:
-            return Response({
-                'result': 401
-            })
+            return Response({}, status.HTTP_401_UNAUTHORIZED)
         users = User.objects.filter(full_name=request.data['full_name'])
         data = []
         for u in users:
             data.append(u.to_dict())
         return Response({
-            'result': 200,
             'users': data
-        })
+        }, status.HTTP_200_OK)
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -340,6 +334,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
             'count': len(projects),
             'projects': projects
         }, 200)
+
+    @action(detail=False, methods=['get'])
+    @is_admin
+    def list_all(self, request):
+        queryset = self.queryset
+        return Response({
+
+        }, status.HTTP_200_OK)
 
     @action(methods=['post'], detail=False)
     @is_project_member
