@@ -6,7 +6,7 @@ from rest_framework import status
 
 
 def is_user_in_project(user_id, project_id):
-    user = User.objects.filter(id=user_id).first()
+    user = User.objects.filter(id=user_id, is_deleted=False).first()
     if user is None:
         return {
             'result': False,
@@ -34,7 +34,7 @@ def auth(func):
 
     @functools.wraps(func)
     def execute(view_set, request, *args, **kwargs):
-        user = User.objects.filter(email=request.user).first()
+        user = User.objects.filter(email=request.user, is_deleted=False).first()
         if user is None:
             return Response({}, status.HTTP_401_UNAUTHORIZED)
         return func(view_set, request, *args, **kwargs)

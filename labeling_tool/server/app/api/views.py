@@ -38,7 +38,7 @@ class UserRegisterView(APIView):
                 serializer.validated_data['password'])
             serializer.save()
 
-            user = User.objects.filter(email=request.data['email']).first()
+            user = User.objects.filter(email=request.data['email'], is_deleted=False).first()
             result = user.to_dict()
             result['phone'] = user.phone
             result['gender'] = "MALE" if user.gender == 0 else "FEMALE"
@@ -95,10 +95,10 @@ class UserLogoutView(APIView):
 class SearchMemberView(APIView):
     @staticmethod
     def get(request):
-        user = User.objects.filter(email=request.user).first()
+        user = User.objects.filter(email=request.user, is_deleted=False).first()
         if user is None:
             return Response({}, status.HTTP_401_UNAUTHORIZED)
-        users = User.objects.filter(full_name=request.data['full_name'])
+        users = User.objects.filter(full_name=request.data['full_name'], is_deleted=False)
         data = []
         for u in users:
             data.append(u.to_dict())
@@ -108,19 +108,20 @@ class SearchMemberView(APIView):
 
 
 class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
+    queryset = User.objects.filter(is_deleted=False)
 
     @is_admin
     def destroy(self, request, pk=None):
-        user = self.queryset.filter(pk=pk).first()
+        user = self.queryset.filter(pk=pk).filter(is_detelted=False).first()
         if user is None:
             return Response({}, status.HTTP_404_NOT_FOUND)
-        user.delete()
+        user.is_deleted = True
+        user.save()
         return Response({}, status.HTTP_204_NO_CONTENT)
 
     @auth
     def list(self, request):
-        queryset = self.queryset
+        queryset = self.queryset.filter(is_deleted=False)
         pagination = PageNumberPagination()
         users = pagination.paginate_queryset(queryset, request)
         result = []
@@ -135,7 +136,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @auth
     def retrieve(self, request, pk=None):
-        user = self.queryset.filter(pk=pk).first()
+        user = self.queryset.filter(pk=pk).filter(is_deleted=False).first()
         if user is None:
             return Response({}, status.HTTP_404_NOT_FOUND)
         return Response(user.to_dict(), status.HTTP_200_OK)
@@ -155,7 +156,7 @@ class UserViewSet(viewsets.ModelViewSet):
 class ChangePasswordView(APIView):
     @staticmethod
     def put(request):
-        user = User.objects.filter(email=request.user).first()
+        user = User.objects.filter(email=request.user, is_deleted=False).first()
         if user is None:
             return Response({}, status.HTTP_401_UNAUTHORIZED)
         if request.data.get('password') is None:
@@ -170,7 +171,7 @@ class ChangePasswordView(APIView):
 class UpdateUserProfileView(APIView):
     @staticmethod
     def put(request):
-        user = User.objects.filter(email=request.user).first()
+        user = User.objects.filter(email=request.user, is_deleted=False).first()
         if user is None:
             return Response({}, status.HTTP_401_UNAUTHORIZED)
         if request.data.get('full_name') is not None:
@@ -238,14 +239,14 @@ class FileUploadView(APIView):
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
-    queryset = Project.objects.all()
+    queryset = Project.objects.filter(is_deleted=False)
     serializer_class = ProjectSerializer
 
     @auth
     @parser_classes([MultiPartParser])
     @transaction.atomic
     def create(self, request):
-        user = User.objects.filter(email=request.user).first()
+        user = User.objects.filter(email=request.user, is_deleted=False).first()
         serializer = self.serializer_class(data=request.data)
         project = self.queryset.filter(es_id=request.data['es_id']).first()
 
@@ -325,7 +326,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     @auth
     def list(self, request):
-        user = User.objects.filter(email=request.user).first()
+        user = User.objects.filter(email=request.user, is_deleted=False).first()
         project_members = ProjectMember.objects.filter(user=user)
         projects = []
         for project_member in project_members:
@@ -339,9 +340,43 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @is_admin
     def list_all(self, request):
         queryset = self.queryset
+        pagination = PageNumberPagination()
+        projects = pagination.paginate_queryset(queryset, request)
+        result = []
+        for project in projects:
+            result.append(project.to_dict())
         return Response({
-
+            'count': pagination.page.paginator.count,
+            'previous': pagination.get_previous_link(),
+            'next': pagination.get_next_link(),
+            'results': result
         }, status.HTTP_200_OK)
+
+    @auth
+    def update(self, request, pk=None):
+        project = self.queryset.filter(pk=pk).first()
+        if project is None:
+            return Response({}, status.HTTP_404_NOT_FOUND)
+        user = User.objects.filter(email=request.user).first()
+        if user.is_superuser or project.owner == user:
+            update_model(project, request.data, ['name', 'description', 'num_sequence_highlight',
+                                                 'min_table_row_highlight', 'max_table_row_highlight', 'k', 'b1'])
+            return Response(project.to_dict(), status.HTTP_201_CREATED)
+        else:
+            return Response({}, status.HTTP_403_FORBIDDEN)
+
+    @auth
+    def destroy(self, request, pk=None):
+        project = self.queryset.filter(pk=pk).first()
+        if project is None:
+            return Response({}, status.HTTP_404_NOT_FOUND)
+        user = User.objects.filter(email=request.user).first()
+        if user.is_superuser or project.owner == user:
+            project.is_deleted = True
+            project.save()
+            return Response({}, status.HTTP_204_NO_CONTENT)
+        else:
+            return Response({}, status.HTTP_403_FORBIDDEN)
 
     @action(methods=['post'], detail=False)
     @is_project_member
@@ -409,11 +444,11 @@ class ProjectMemberViewSet(viewsets.ModelViewSet):
 
     @is_project_owner
     def create(self, request):
-        project = Project.objects.filter(id=request.data['project_id']).first()
+        project = Project.objects.filter(id=request.data['project_id'], is_deleted=False).first()
         user_ids = request.data['user_ids']
         project_members = []
         for user_id in user_ids:
-            user = User.objects.filter(pk=user_id).first()
+            user = User.objects.filter(pk=user_id, is_deleted=False).first()
             if user is None:
                 return Response({
                     'errors': 'User ' + str(user_id) + ' is not exist'
@@ -434,7 +469,7 @@ class ProjectMemberViewSet(viewsets.ModelViewSet):
     @action(methods=['delete'], detail=False)
     @is_project_owner
     def delete(self, request):
-        project = Project.objects.filter(id=request.data['project_id']).first()
+        project = Project.objects.filter(id=request.data['project_id'], is_deleted=False).first()
         user_ids = request.data['user_ids']
         project_members = []
         for user_id in user_ids:
@@ -465,104 +500,120 @@ class ClaimViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     @is_project_member
     def highlight(self, request, pk=None):
-        project = Project.objects.filter(id=request.data['project_id']).first()
-        query_set = Document.objects.filter(project=project, is_processed=False)
-        if query_set.count() == 0:
-            return Response({
-                'errors': 'There is no document left'
-            }, status.HTTP_400_BAD_REQUEST)
-        document = query_set[random.randint(0, query_set.count() - 1)]
+        project = Project.objects.filter(id=request.data['project_id'], is_deleted=False).first()
+
         try:
-            # Get Config and Document Data
-            path = 'http://{}/{}/_doc/{}'.format(settings.ELASTICSEARCH_SERVER, project.es_id, document.doc_id)
-            document_data = requests.get(path).json()
-            order = document_data['_source']['order']
-            seq_num = project.num_sequence_highlight
-            min_row = project.min_table_row_highlight
-            max_row = project.max_table_row_highlight
-
-            # Check if highlight table or sentences
-            document_has_table = False
-            tables = []
-            for item in order:
-                if item[0:5] == 'table':
-                    table = document_data['_source'][item]
-                    if min_row <= len(table) <= max_row:
-                        document_has_table = True
-                        tables.append(item)
-            get_table = False
-            if document_has_table and min_row <= max_row and max_row > 0:
-                get_table = random.choice([True, False])
-
-            # Get Highlight List
             highlight = []
-            if get_table:
-                # Add table to highlight list
-                highlight.append(random.choice(tables))
-            else:
-                # Add sentences to highlight list
-                count = 0
-                while len(highlight) < seq_num:
-                    count += 1
-                    # Too lazy :>
-                    if count == 99:
-                        highlight = []
-                        break
-                    random_index = random.randint(0, len(order) - 1 - seq_num)
-                    # Check seq_num sentences from random sentence
-                    if order[random_index][0:8] == 'sentence':
-                        highlight = [order[random_index]]
-                        for i in range(1, seq_num):
-                            if order[i + random_index][0:8] == 'sentence':
-                                # Is sentence -> add to highlight list
-                                highlight.append(order[i + random_index])
-                            else:
-                                # Clear highlight list and start again
-                                highlight = []
-                                break
+            while len(highlight) == 0:
+                # Random document
+                query_set = Document.objects.filter(project=project, is_processed=False)
+                if query_set.count() == 0:
+                    return Response({
+                        'errors': 'There is no document left'
+                    }, status.HTTP_400_BAD_REQUEST)
+                document = query_set[random.randint(0, query_set.count() - 1)]
+                document.is_processed = True
+                document.save()
 
-            # Add sentence, table_data, cells in highlight list to databases
-            sentences = []
-            cells = []
-            if len(highlight) > 0:
-                for item in highlight:
+                # Get Config and Document Data
+                path = 'http://{}/{}/_doc/{}'.format(settings.ELASTICSEARCH_SERVER, project.es_id, document.doc_id)
+                document_data = requests.get(path).json()
+                order = document_data['_source']['order']
+                seq_num = project.num_sequence_highlight
+                min_row = project.min_table_row_highlight
+                max_row = project.max_table_row_highlight
+
+                # Check if highlight table or sentences
+                document_has_table = False
+                document_max_continuous_seq = 0
+                count_seq = 0
+                tables = []
+                for item in order:
                     if item[0:5] == 'table':
-                        table = TableData.objects.create(
-                            document=document,
-                            id_in_document=int(item[6:]),
-                            is_highlighted=True
-                        )
-                        table_data = document_data[item]
-                        for row in range(0, len(table_data) - 1):
-                            row_data = table_data[row]
-                            for column in range(0, len(row_data) - 1):
-                                cell = row_data[column]
-                                cells.append(Cell(
-                                    row=row,
-                                    column=column,
-                                    is_header=cell['is_header'] or False,
-                                    table_data=table,
-                                    context='{}_{}_{}_{}'.format(document.doc_id, item, row, column)
-                                ))
+                        count_seq = 0
+                        table = document_data['_source'][item]
+                        if min_row <= len(table) <= max_row:
+                            document_has_table = True
+                            tables.append(item)
                     else:
-                        sentences.append(Sentence(
-                            document=document,
-                            is_highlighted=True,
-                            id_in_document=int(item[9:]),
-                            context='{}_{}'.format(document.doc_id, item)
-                        ))
-            Sentence.objects.bulk_create(sentences)
-            Cell.objects.bulk_create(cells)
+                        count_seq += 1
+                        document_max_continuous_seq = max(document_max_continuous_seq, count_seq)
+                get_table = False
+                if document_has_table and min_row <= max_row and max_row > 0:
+                    get_table = random.choice([True, False])
+                if document_max_continuous_seq < seq_num:
+                    if document_has_table:
+                        get_table = True
+                    else:
+                        continue
 
-            # Return data
-            document.is_processed = True
-            document.save()
-            return Response({
-                'es_id': document.doc_id,
-                'highlight': highlight,
-                'document_id': document.id,
-                'document_data': document_data['_source']
-            }, status.HTTP_200_OK)
+                # Get Highlight List
+                if get_table:
+                    # Add table to highlight list
+                    highlight.append(random.choice(tables))
+                else:
+                    # Add sentences to highlight list
+                    count = 0
+                    while len(highlight) < seq_num:
+                        count += 1
+                        # Too lazy :>
+                        if count == 99:
+                            highlight = []
+                            break
+                        random_index = random.randint(0, len(order) - 1 - seq_num)
+                        # Check seq_num sentences from random sentence
+                        if order[random_index][0:8] == 'sentence':
+                            highlight = [order[random_index]]
+                            for i in range(1, seq_num):
+                                if order[i + random_index][0:8] == 'sentence':
+                                    # Is sentence -> add to highlight list
+                                    highlight.append(order[i + random_index])
+                                else:
+                                    # Clear highlight list and start again
+                                    highlight = []
+                                    break
+
+                # Add sentence, table_data, cells in highlight list to databases
+                sentences = []
+                cells = []
+                if len(highlight) > 0:
+                    for item in highlight:
+                        if item[0:5] == 'table':
+                            table = TableData.objects.create(
+                                document=document,
+                                id_in_document=int(item[6:]),
+                                is_highlighted=True
+                            )
+                            table_data = document_data[item]
+                            for row in range(0, len(table_data) - 1):
+                                row_data = table_data[row]
+                                for column in range(0, len(row_data) - 1):
+                                    cell = row_data[column]
+                                    cells.append(Cell(
+                                        row=row,
+                                        column=column,
+                                        is_header=cell['is_header'] or False,
+                                        table_data=table,
+                                        context='{}_{}_{}_{}'.format(document.doc_id, item, row, column)
+                                    ))
+                        else:
+                            sentences.append(Sentence(
+                                document=document,
+                                is_highlighted=True,
+                                id_in_document=int(item[9:]),
+                                context='{}_{}'.format(document.doc_id, item)
+                            ))
+                else:
+                    continue
+                Sentence.objects.bulk_create(sentences)
+                Cell.objects.bulk_create(cells)
+
+                return Response({
+                    'doc_id': document.doc_id,
+                    'highlight': highlight,
+                    'document_id': document.id,
+                    'document_data': document_data['_source']
+                }, status.HTTP_200_OK)
         except Exception as e:
             return Response({
                 'errors': str(e)
@@ -571,7 +622,7 @@ class ClaimViewSet(viewsets.ModelViewSet):
     @is_project_member
     def create(self, request):
         user = User.objects.filter(email=request.user).first()
-        project = Project.objects.filter(id=request.data['project_id']).first()
+        project = Project.objects.filter(id=request.data['project_id'], is_deleted=False).first()
         document = Document.objects.filter(id=request.data['document_id'], is_processed=True, project=project).first()
         if document is None:
             return Response({
@@ -595,7 +646,7 @@ class ClaimViewSet(viewsets.ModelViewSet):
 
     @is_project_member
     def list(self, request):
-        project = Project.objects.filter(id=request.data['project_id']).first()
+        project = Project.objects.filter(id=request.data['project_id'], is_deleted=False).first()
         user = User.objects.filter(email=request.user).first()
         claims = Claim.objects.filter(project=project, created_by=user)
         pagination = PageNumberPagination()
@@ -642,7 +693,7 @@ class EvidenceViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["post"])
     @is_project_member
     def get_claim(self, request, pk=None):
-        project = Project.objects.filter(id=request.data['project_id']).first()
+        project = Project.objects.filter(id=request.data['project_id'], is_deleted=False).first()
         user = User.objects.filter(email=request.user).first()
         claim = Claim.objects.filter(label='PICKED', project=project, annotated_by=user).first()
         if claim is not None:
@@ -677,7 +728,7 @@ class EvidenceViewSet(viewsets.ModelViewSet):
             return Response({
                 'errors': 'claim is not exist'
             }, status.HTTP_404_NOT_FOUND)
-        project = Project.objects.filter(pk=request.data['project_id']).first()
+        project = Project.objects.filter(pk=request.data['project_id'], is_deleted=False).first()
         if claim.project != project:
             return Response({
                 'errors': 'claim is not in project'
@@ -701,7 +752,7 @@ class EvidenceViewSet(viewsets.ModelViewSet):
     @transaction.atomic
     def create(self, request):
         user = User.objects.filter(email=request.user).first()
-        project = Project.objects.filter(id=request.data['project_id']).first()
+        project = Project.objects.filter(id=request.data['project_id'], is_deleted=False).first()
         claim = Claim.objects.filter(
             id=request.data['claim_id'], project=project).first()
         if claim is None:
@@ -819,7 +870,7 @@ class EvidenceViewSet(viewsets.ModelViewSet):
 
 
 def get_project_info(project_id):
-    project = Project.objects.filter(id=project_id).first()
+    project = Project.objects.filter(id=project_id, is_deleted=False).first()
     if project is None:
         return None
     project_members = ProjectMember.objects.filter(project=project)

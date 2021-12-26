@@ -13,6 +13,7 @@ class User(AbstractUser):
     email = models.EmailField(max_length=100, unique=True)
     gender = models.SmallIntegerField(default=0)  # 0: Male, 1: Female
     phone = models.CharField(max_length=20, unique=True, default=None)
+    is_deleted = models.BooleanField(default=False, null=True)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
@@ -41,6 +42,7 @@ class Project(models.Model):
     min_table_row_highlight = models.IntegerField(default=5)
     max_table_row_highlight = models.IntegerField(default=50)
     es_id = models.CharField(max_length=100, unique=True, null=False)
+    is_deleted = models.BooleanField(default=False, null=True)
 
     def to_dict(self):
         return {
