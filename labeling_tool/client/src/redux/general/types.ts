@@ -5,4 +5,5 @@ export type GeneralActions = ActionType<typeof actions>;
 
 export interface IGeneralState {
     showTopLoading: boolean;
+    currentRoute: string;
 }

@@ -29,6 +29,7 @@ import { ISnackBarState, SnackBarActions } from "./redux/snackbar/types";
 import { Dispatch } from "redux";
 import Utils from "./utils/utils";
 import "./index.scss";
+import DataFormatInfoPage from "./pages/dataformat";
 
 function mapDispatcherToProps(dispatch: Dispatch<SnackBarActions>): IAppPropsFromDispatch {
 	return {
@@ -41,16 +42,18 @@ interface IAppPropsFromDispatch {
 	hideSnackBar?: () => void;
 }
 function mapStateToProps({ general, snackBar }: IRootState): IAppPropsFromState {
-	const { showTopLoading } = general;
+	const { showTopLoading, currentRoute } = general;
 	return {
 		showTopLoading,
-		snackBarState: snackBar
+		snackBarState: snackBar,
+		currentRoute
 	};
 }
 
 interface IAppPropsFromState {
 	showTopLoading?: boolean;
 	snackBarState?: ISnackBarState
+	currentRoute?: string;
 }
 
 type IAppProps = IAppPropsFromState & IAppPropsFromDispatch;
@@ -75,7 +78,10 @@ class App extends React.Component<IAppProps> {
 	render() {
 		return (
 			<div className={`container`}>
-				<Header inLoginScreen={window.location.pathname === "/login"} />
+				<Header
+					inLoginScreen={this.props.currentRoute === "/login"}
+					inRegisterScreen={this.props.currentRoute === "/register"}
+				/>
 				<Router history={history}>
 					<Route exact path='/' component={Main} />
 					<Route exact path='/register' component={Register} />
@@ -85,6 +91,7 @@ class App extends React.Component<IAppProps> {
 					<Route exact path='/project/:prjid' component={ProjectDetail} />
 					<Route exact path='/project/:prjid/:esid/createclaims' component={CreateClaims} />
 					<Route exact path='/project/:prjid/:esid/annotateclaims' component={AnnotateClaims} />
+					<Route exact path='/dataformatinfo' component={DataFormatInfoPage} />
 				</Router>
 				<Modal
 					open={!!this.props.showTopLoading}

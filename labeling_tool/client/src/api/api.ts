@@ -35,8 +35,8 @@ API.interceptors.response.use(
     },
     err => {
         if(err.response.status === 401) {
-            history.push("/");
             localStorage.setItem("loggedIn", "0");
+            history.push("/");
         }
         return Promise.reject(!!err.response?.data ? err.response.data : err.response);
     }
