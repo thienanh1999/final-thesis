@@ -12,6 +12,9 @@ import CreateProject from "./pages/createproject";
 import ProjectDetail from "./pages/projectdetail";
 import CreateClaims from "./pages/createclaims";
 import AnnotateClaims from "./pages/annotateclaims";
+import ProjectManagement from "./pages/admin/projectmanagement";
+import UserManagement from "./pages/admin/usermanagement";
+import UpdateProject from "./pages/admin/updateproject";
 import { connect } from 'react-redux';
 import { IRootState } from './redux';
 import * as snackBarActions from './redux/snackbar/actions';
@@ -92,6 +95,9 @@ class App extends React.Component<IAppProps> {
 					<Route exact path='/project/:prjid/:esid/createclaims' component={CreateClaims} />
 					<Route exact path='/project/:prjid/:esid/annotateclaims' component={AnnotateClaims} />
 					<Route exact path='/dataformatinfo' component={DataFormatInfoPage} />
+					<Route exact path='/admin/projectmanagement' component={ProjectManagement} />
+					<Route exact path='/admin/usermanagement' component={UserManagement} />
+					<Route exact path='/admin/project/:prjid' component={UpdateProject} />
 				</Router>
 				<Modal
 					open={!!this.props.showTopLoading}

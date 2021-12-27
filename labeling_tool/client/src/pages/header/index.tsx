@@ -77,7 +77,6 @@ export default class Header extends React.Component<{ inLoginScreen: boolean, in
 					open={this.state.menuIsOpen}
 					onClose={this.handleMenuClose}
 				>
-					<MenuItem onClick={this.handleMenuClose}>Cập nhật thông tin cá nhân</MenuItem>
 					<MenuItem onClick={this.handleMenuClose}>Đổi mật khẩu</MenuItem>
 					<MenuItem onClick={this.handleLogout}>Đăng xuất</MenuItem>
 				</Menu>

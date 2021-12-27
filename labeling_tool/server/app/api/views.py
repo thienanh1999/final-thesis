@@ -113,7 +113,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @is_admin
     def destroy(self, request, pk=None):
-        user = self.queryset.filter(pk=pk).filter(is_detelted=False).first()
+        user = self.queryset.filter(pk=pk).filter(is_deleted=False).first()
         if user is None:
             return Response({}, status.HTTP_404_NOT_FOUND)
         user.is_deleted = True
@@ -457,7 +457,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 'logs': str(e)
             }, status.HTTP_503_SERVICE_UNAVAILABLE)
 
-    @action(detail=False, methods=['GET'])
+    @action(detail=False, methods=['POST'])
     @is_project_member
     def download(self, request):
         labeled_claims = Claim.objects.filter(is_labeled=True).exclude(label='SKIPPED')
@@ -712,7 +712,7 @@ class ClaimViewSet(viewsets.ModelViewSet):
     def create(self, request):
         user = User.objects.filter(email=request.user).first()
         project = Project.objects.filter(id=request.data['project_id'], is_deleted=False).first()
-        document = Document.objects.filter(id=request.data['document_id'], is_processed=True, project=project).first()
+        document = Document.objects.filter(id=request.data['document_id'], is_processed=False, project=project).first()
         if document is None:
             return Response({
                 'errors': 'Document is not exist'

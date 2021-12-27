@@ -15,6 +15,17 @@ class ProjectAPI {
 		const reqBody: any = { project_id: prjId };
 		return API.post(url, reqBody);
 	};
+	skipHighlight = (prjId: string, articleId: string) => {
+		const url = `/claim_generation/${articleId}/skip/`;
+		const reqBody: any = { project_id: prjId };
+		return API.put(url, reqBody);
+	}
+	exportData = (id: string) => {
+		const url = `/project/download/`;
+		return API.post(url, {
+			project_id: id
+		});
+	}
 	createPrj = (
 		pName: string,
 		pDesc: string,
@@ -79,14 +90,13 @@ class ProjectAPI {
 		c3Type: Claim3Type
 	) => {
 		const url = "/claim_generation/";
-		const reqBody: any = {
+		let reqBody: any = {
 			project_id: prjId,
 			document_id: docId,
-			claim_1: c1,
-			claim_2: c2,
-			claim_3: c3,
-			sub_type: c3Type,
 		};
+		if (c1) reqBody.claim_1 = c1;
+		if (c2) reqBody.claim_2 = c2;
+		if (c3) { reqBody.claim_3 = c3; reqBody.sub_type = c3Type }
 		return API.post(url, reqBody);
 	};
 	annotateClaim = (

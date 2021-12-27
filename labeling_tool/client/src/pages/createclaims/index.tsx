@@ -294,13 +294,24 @@ class CreateClaims extends React.Component<ICreateClaimsProps, ICreateClaimsStat
 									className={`bt-submit`}
 									variant="contained"
 									onClick={() => {
-										this.getNewHighLight();
-										showSnackBar!(
-											"Chúc mừng! Bạn đã bỏ qua bài báo vừa rồi!",
-											10000,
-											SnackBarType.Success
-										);
-										this.getNewHighLight();
+										this.props.showTopLoading!();
+										projectAPI.skipHighlight(prjId!, this.state.docId.toString()).then(res => {
+											showSnackBar!(
+												"Chúc mừng! Bạn đã bỏ qua bài báo vừa rồi!",
+												10000,
+												SnackBarType.Success
+											);
+											this.getNewHighLight();
+										}).catch(_ => {
+											showSnackBar!(
+												"Bỏ qua bài báo thất bại!",
+												10000,
+												SnackBarType.Error
+											);
+											this.props.hideTopLoading!();
+
+										})
+
 									}}
 								>
 									Bỏ qua
