@@ -123,7 +123,7 @@ class Dashboard extends React.Component<IDashboardProps, IDashboardState> {
 									<StyledTableCell>Tên dự án</StyledTableCell>
 									<StyledTableCell align="center">ID</StyledTableCell>
 									<StyledTableCell align="center">Quản lý dự án</StyledTableCell>
-									<StyledTableCell align="center">Mô tả</StyledTableCell>
+									<StyledTableCell align="center" sx={{ maxWidth: "300px", overflowX: "hidden", textOverflow: "ellipsis" }}>Mô tả</StyledTableCell>
 									<StyledTableCell align="center">Elasticsearch Index</StyledTableCell>
 								</StyledTableRow>
 							</TableHead>
@@ -143,7 +143,7 @@ class Dashboard extends React.Component<IDashboardProps, IDashboardState> {
 										</StyledTableCell>
 										<StyledTableCell align="center">{row.id}</StyledTableCell>
 										<StyledTableCell align="center">{row.owner?.full_name}</StyledTableCell>
-										<StyledTableCell align="center">{row.description}</StyledTableCell>
+										<StyledTableCell align="center" sx={{ maxWidth: "300px", overflowX: "hidden", textOverflow: "ellipsis" }}>{row.description}</StyledTableCell>
 										<StyledTableCell align="center">{row.es_id}</StyledTableCell>
 									</StyledTableRow>
 								))}

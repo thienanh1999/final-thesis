@@ -131,7 +131,7 @@ class Login extends React.Component<ILoginProps, ILoginState> {
 							userAPI
 								.login(email, password)
 								.then(res => {
-									if (res.data.result === 201) {
+									if (res.status === 200) {
 										localStorage.setItem("loggedIn", "1");
 										localStorage.setItem("userFullName", res.data.email);
 										localStorage.setItem("accessToken", res.data.access_token)
@@ -139,7 +139,12 @@ class Login extends React.Component<ILoginProps, ILoginState> {
 										localStorage.setItem("userId", res.data.user_id)
 										localStorage.setItem("accessExpires", res.data.access_expires)
 										localStorage.setItem("refreshExpires", res.data.refresh_expires)
-										history.push("/dashboard");
+										localStorage.setItem("isAdmin", res.data.is_superuser)
+										history.push(
+											res.data.is_superuser ?
+												"/admin/projectmanagement" :
+												"/dashboard"
+										);
 										showSnackBar!(
 											"Chúc mừng bạn đã đăng nhập thành công!",
 											10000,

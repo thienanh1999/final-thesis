@@ -143,15 +143,28 @@ class ProjectDetail extends React.Component<IProjectDetailProps, IProjectDetailS
 								/>
 								<p>{`${prjDetail?.document?.processed} văn bản / ${prjDetail?.document?.total} văn bản`}</p>
 							</div>
-							<Button
-								sx={{ mb: 2, width: "max-content" }}
-								variant="contained"
-								onClick={() => {
-									this.setState({ showUploadMoreModal: true });
-								}}
-							>
-								Tải lên thêm dữ liệu
-							</Button>
+							<Stack spacing={2} direction={"row"}>
+								<Button
+									sx={{ mb: 2, width: "max-content" }}
+									variant="contained"
+									onClick={() => {
+										this.setState({ showUploadMoreModal: true });
+									}}
+								>
+									Tải lên thêm dữ liệu
+								</Button>
+								<Button
+									sx={{ mb: 2, width: "max-content", height: "max-content" }}
+									variant="contained"
+									color="success"
+									onClick={() => {
+										this.downloadFile();
+									}}
+								>
+									Xuất dữ liệu
+								</Button>
+							</Stack>
+
 							<Typography
 								variant="body1"
 								component="p"
@@ -183,7 +196,7 @@ class ProjectDetail extends React.Component<IProjectDetailProps, IProjectDetailS
 								component="p"
 								sx={{ mt: 1 }}
 							>
-								Số thành viên tham gia dự án: <span>
+								Số thành viên tham gia dự án: <span>{(this.state.prjDetail && this.state.prjDetail.project_owner && this.state.prjDetail.project_owner.email && this.state.prjDetail.project_owner.email === localStorage.getItem('userFullName')) ?
 									<Link
 										onClick={() => {
 											this.setState({ showMemberModal: true });
@@ -193,11 +206,11 @@ class ProjectDetail extends React.Component<IProjectDetailProps, IProjectDetailS
 										}}
 									>
 										{`${prjDetail.project_member?.length} thành viên`}
-									</Link>
+									</Link> : `${prjDetail.project_member?.length} thành viên`}
 								</span>
 							</Typography>
 
-							<Button
+							{(this.state.prjDetail && this.state.prjDetail.project_owner && this.state.prjDetail.project_owner.email && this.state.prjDetail.project_owner.email === localStorage.getItem('userFullName')) && <Button
 								sx={{ mt: 2, width: "max-content" }}
 								variant="contained"
 								onClick={() => {
@@ -205,7 +218,7 @@ class ProjectDetail extends React.Component<IProjectDetailProps, IProjectDetailS
 								}}
 							>
 								Quản lý thành viên
-							</Button>
+							</Button>}
 						</Box>
 
 
@@ -426,7 +439,33 @@ class ProjectDetail extends React.Component<IProjectDetailProps, IProjectDetailS
 			</Box >
 		)
 	}
+	private downloadFile = () => {
+		this.props.showTopLoading!();
+		projectAPI.exportData(this.props.match.params.prjid!).then(res => {
+			this.export(res.data.dataset)
+		}).catch(() => {
+			this.props.hideTopLoading!();
+			this.props.showSnackBar!("Xuất dữ liệu thất bại!", 10000, SnackBarType.Error);
+		})
+	}
+
+	private export = async (myData: any) => {
+		const fileName = this.state.prjDetail.es_id;
+		const json = JSON.stringify(myData);
+		const blob = new Blob([json], { type: 'application/json' });
+		const href = await URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		link.href = href;
+		link.download = fileName + ".json";
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+		this.props.hideTopLoading!();
+	}
 }
+
+
+
 const modalStyle: any = {
 	position: 'absolute',
 	top: '50%',
