@@ -608,7 +608,7 @@ class ClaimViewSet(viewsets.ModelViewSet):
                 for item in order:
                     if item[0:5] == 'table':
                         count_seq = 0
-                        table = document_data['_source'][item]
+                        table = document_data['_source'][item]['table']
                         if min_row <= len(table) <= max_row:
                             document_has_table = True
                             tables.append(item)
@@ -661,14 +661,14 @@ class ClaimViewSet(viewsets.ModelViewSet):
                                 id_in_document=int(item[6:]),
                                 is_highlighted=True
                             )
-                            table_data = document_data[item]
+                            table_data = document_data['_source'][item]['table']
                             for row in range(0, len(table_data) - 1):
                                 row_data = table_data[row]
                                 for column in range(0, len(row_data) - 1):
                                     cell = row_data[column]
                                     cells.append(Cell(
                                         row=row,
-                                        column=column,
+                                        col=column,
                                         is_header=cell['is_header'] or False,
                                         table_data=table,
                                         context='{}_{}_{}_{}'.format(document.doc_id, item, row, column)
