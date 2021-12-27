@@ -77,6 +77,7 @@ class ProjectMember(models.Model):
 class Document(models.Model):
     doc_id = models.IntegerField()
     project = models.ForeignKey(Project, on_delete=models.DO_NOTHING)
+    assigned_to = models.ForeignKey(User, on_delete=models.DO_NOTHING, null=True, default=None, related_name='+')
     is_processed = models.BooleanField(default=False)
     uploader = models.ForeignKey(User, on_delete=models.DO_NOTHING)
 
@@ -144,12 +145,23 @@ class Claim(models.Model):
 
 class Evidence(models.Model):
     claim = models.ForeignKey(Claim, on_delete=models.DO_NOTHING)
+    document = models.ForeignKey(Document, on_delete=models.DO_NOTHING, default=None, null=True)
     sentence = models.ForeignKey(Sentence, on_delete=models.DO_NOTHING, default=None, null=True)
     cell = models.ForeignKey(Cell, on_delete=models.DO_NOTHING, default=None, null=True)
     set = models.IntegerField(default=1)
 
     class Meta:
         db_table = "evidence"
+
+    def get_context(self):
+        if self.document is not None:
+            return [self.document.id]
+        if self.sentence is not None:
+            return [self.sentence.document.id, 'sentence_{}'.format(self.sentence.id_in_document)]
+        if self.cell is not None:
+            table_data = self.cell.table_data
+            return [table_data.document.id, 'table_{}'.format(table_data.id_in_document), self.cell.row, self.cell.col]
+        return []
 
 
 class Annotator(models.Model):
@@ -164,3 +176,15 @@ class Annotator(models.Model):
 
     class Meta:
         db_table = "annotator"
+
+    def get_value(self):
+        if self.document is not None:
+            return [self.document.id]
+        if self.sentence is not None:
+            return [self.sentence.document.id, 'sentence_{}'.format(self.sentence.id_in_document)]
+        if self.cell is not None:
+            table_data = self.cell.table_data
+            return [table_data.document.id, 'table_{}'.format(table_data.id_in_document), self.cell.row,
+                    self.cell.col]
+        if self.operation == 'start' or self.operation == 'search':
+            return self.value

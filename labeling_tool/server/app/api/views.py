@@ -16,6 +16,7 @@ from .serializers import UserSerializer, UserLoginSerializer, ProjectSerializer,
     ClaimSerializer
 from django.conf import settings
 from .utils import *
+from .data_utils import *
 from rest_framework.parsers import MultiPartParser
 from elasticsearch import Elasticsearch, helpers
 from django.db import transaction
@@ -64,9 +65,9 @@ class UserLoginView(APIView):
                 refresh = TokenObtainPairSerializer.get_token(user)
                 data = {
                     'message': 'Login successfully!',
-                    'result': 201,
                     'email': str(user),
                     'user_id': int(user.id),
+                    'full_name': user.full_name,
                     'is_superuser': user.is_superuser,
                     'refresh_token': str(refresh),
                     'access_token': str(refresh.access_token),
@@ -248,6 +249,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def create(self, request):
         user = User.objects.filter(email=request.user, is_deleted=False).first()
         serializer = self.serializer_class(data=request.data)
+        if not serializer.is_valid():
+            return Response({
+                'errors': serializer.errors
+            }, status.HTTP_400_BAD_REQUEST)
         project = self.queryset.filter(es_id=request.data['es_id']).first()
 
         if project is not None:
@@ -256,6 +261,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             }, status.HTTP_400_BAD_REQUEST)
 
         try:
+            # Save temp file
             print("Received file ", request.FILES)
             uploaded_file = request.FILES['file']
             filename = '/tmp/' + request.data['es_id'] + '.json'
@@ -263,6 +269,22 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 for chunk in uploaded_file.chunks():
                     new_file.write(chunk)
 
+            json_file = open(filename, 'r')
+            data = json.load(json_file)
+            data_length = len(data)
+            os.remove(filename)
+            print('data length: ' + str(data_length))
+
+            # Validate data
+            validate_data = validate_uploaded_document(data)
+            if validate_data is not None:
+                return Response({'errors': validate_data}, status.HTTP_400_BAD_REQUEST)
+
+            # Add document id
+            data = add_id_to_docs(0, data)
+
+            # Upload to ES
+            print('Indexing {}'.format(request.data['es_id']))
             client = Elasticsearch(settings.ELASTICSEARCH_SERVER, timeout=50)
             client.indices.create(
                 index=request.data['es_id'],
@@ -277,13 +299,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 },
                 ignore=400
             )
-            json_file = open(filename, 'r')
-            data = json.load(json_file)
-            data_length = len(data)
-            os.remove(filename)
-            print('data length: ' + str(data_length))
-            print('Indexing {}'.format(request.data['es_id']))
-
             resp = helpers.bulk(
                 client,
                 data,
@@ -293,20 +308,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
             print("helpers.bulk() RESPONSE:", json.dumps(resp, indent=4))
             if (resp[0] == data_length):
                 # Index successfully
-                if serializer.is_valid():
-                    project = serializer.save(owner=user)
-                    ProjectMember.objects.create(user=user, project=project)
-                    documents = []
-                    for doc in data:
-                        document = Document.objects.filter(project=project, doc_id=doc['_id']).first()
-                        if document is None:
-                            documents.append(Document(project=project, doc_id=doc['_id'], uploader=user))
-                    Document.objects.bulk_create(documents)
-                    return Response(get_project_info(project.id), status.HTTP_201_CREATED)
-                else:
-                    return Response({
-                        'errors': serializer.errors
-                    }, status.HTTP_400_BAD_REQUEST)
+                project = serializer.save(owner=user)
+                ProjectMember.objects.create(user=user, project=project)
+                documents = []
+                for doc in data:
+                    document = Document.objects.filter(project=project, doc_id=doc['_id']).first()
+                    if document is None:
+                        documents.append(Document(project=project, doc_id=doc['_id'], uploader=user))
+                Document.objects.bulk_create(documents)
+                return Response(get_project_info(project.id), status.HTTP_201_CREATED)
         except Exception as e:
             return Response({
                 'result': 503,
@@ -386,13 +396,30 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project = self.queryset.filter(pk=request.data['project_id']).first()
 
         try:
+            # Create temp file
             print("Received file ", request.FILES)
             uploaded_file = request.FILES['file']
             filename = '/tmp/' + project.es_id + '.json'
             with open(filename, 'wb+') as new_file:
                 for chunk in uploaded_file.chunks():
                     new_file.write(chunk)
+            json_file = open(filename, 'r')
+            data = json.load(json_file)
+            data_length = len(data)
+            os.remove(filename)
+            print('data length: ' + str(data_length))
 
+            # Validate data
+            validate_data = validate_uploaded_document(data)
+            if validate_data is not None:
+                return Response({'errors': validate_data}, status.HTTP_400_BAD_REQUEST)
+
+            # Add document id
+            document = Document.objects.filter(project=project).order_by('-doc_id')[:1].first()
+            data = add_id_to_docs(document.doc_id + 1, data)
+
+            # Upload to ES
+            print('Indexing {}'.format(project.es_id))
             client = Elasticsearch(settings.ELASTICSEARCH_SERVER, timeout=50)
             client.indices.create(
                 index=project.es_id,
@@ -407,13 +434,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 },
                 ignore=400
             )
-            json_file = open(filename, 'r')
-            data = json.load(json_file)
-            data_length = len(data)
-            os.remove(filename)
-            print('data length: ' + str(data_length))
-            print('Indexing {}'.format(project.es_id))
-
             resp = helpers.bulk(
                 client,
                 data,
@@ -436,6 +456,40 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 'message': "Tải lên dữ liệu thất bại",
                 'logs': str(e)
             }, status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    @action(detail=False, methods=['GET'])
+    @is_project_member
+    def download(self, request):
+        labeled_claims = Claim.objects.filter(is_labeled=True).exclude(label='SKIPPED')
+        data_set = []
+        for claim in labeled_claims:
+            data = {
+                'id': claim.id,
+                'label': claim.label,
+                'claim': claim.content,
+                'evidence': [],
+                'annotator_operation': []
+            }
+            for set_id in range(1, 4):
+                evidences = Evidence.objects.filter(claim=claim, set=set_id)
+                if evidences.count() == 0:
+                    break
+                set_data = []
+                for evidence in evidences:
+                    set_data.append(evidence.get_context())
+                data['evidence'].append(set_data)
+
+                annotators = Annotator.objects.filter(claim=claim, set=set_id).order_by('time')
+                set_data = []
+                for annotator in annotators:
+                    set_data.append({
+                        'time': annotator.time,
+                        'operation': annotator.operation,
+                        'value': annotator.get_value()
+                    })
+                data['annotator_operation'].append(set_data)
+            data_set.append(data)
+        return Response({'dataset': data_set}, status.HTTP_200_OK)
 
 
 class ProjectMemberViewSet(viewsets.ModelViewSet):
@@ -501,7 +555,30 @@ class ClaimViewSet(viewsets.ModelViewSet):
     @is_project_member
     def highlight(self, request, pk=None):
         project = Project.objects.filter(id=request.data['project_id'], is_deleted=False).first()
+        user = User.objects.filter(email=request.user).first()
+        document = Document.objects.filter(project=project, assigned_to=user, is_processed=False).first()
 
+        # Get assigned document
+        if document is not None:
+            path = 'http://{}/{}/_doc/{}'.format(settings.ELASTICSEARCH_SERVER, project.es_id, document.doc_id)
+            document_data = requests.get(path).json()
+
+            highlight = []
+            table = TableData.objects.filter(document=document, is_highlighted=True).first()
+            if table is not None:
+                highlight.append('table_{}'.format(table.id_in_document))
+            else:
+                sentences = Sentence.objects.filter(document=document, is_highlighted=True)
+                for sentence in sentences:
+                    highlight.append('sentence_{}'.format(sentence.id_in_document))
+            return Response({
+                'doc_id': document.doc_id,
+                'highlight': highlight,
+                'document_id': document.id,
+                'document_data': document_data['_source']
+            }, status.HTTP_200_OK)
+
+        # Find new Document to highlight
         try:
             highlight = []
             while len(highlight) == 0:
@@ -512,7 +589,7 @@ class ClaimViewSet(viewsets.ModelViewSet):
                         'errors': 'There is no document left'
                     }, status.HTTP_400_BAD_REQUEST)
                 document = query_set[random.randint(0, query_set.count() - 1)]
-                document.is_processed = True
+                document.assigned_to = user
                 document.save()
 
                 # Get Config and Document Data
@@ -604,6 +681,8 @@ class ClaimViewSet(viewsets.ModelViewSet):
                                 context='{}_{}'.format(document.doc_id, item)
                             ))
                 else:
+                    document.is_processed = True
+                    document.save()
                     continue
                 Sentence.objects.bulk_create(sentences)
                 Cell.objects.bulk_create(cells)
@@ -619,6 +698,16 @@ class ClaimViewSet(viewsets.ModelViewSet):
                 'errors': str(e)
             }, status.HTTP_400_BAD_REQUEST)
 
+    @action(detail=True, methods=['PUT'])
+    @is_project_member
+    def skip(self, request, pk=None):
+        document = Document.objects.filter(pk=pk).first()
+        if document is None:
+            return Response({}, status.HTTP_404_NOT_FOUND)
+        document.is_processed = True
+        document.save()
+        return Response({}, status.HTTP_201_CREATED)
+
     @is_project_member
     def create(self, request):
         user = User.objects.filter(email=request.user).first()
@@ -628,6 +717,12 @@ class ClaimViewSet(viewsets.ModelViewSet):
             return Response({
                 'errors': 'Document is not exist'
             }, status.HTTP_404_NOT_FOUND)
+        if document.assigned_to != user:
+            return Response({
+                'errors': 'This document not assigned to you'
+            }, status.HTTP_403_FORBIDDEN)
+        document.is_processed = True
+        document.save()
         result = {}
         if request.data.get('claim_1') is not None:
             claim_1 = Claim.objects.create(project=project, document=document,
