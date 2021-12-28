@@ -68,7 +68,7 @@ export default class DataFormatInfoPage extends React.Component {
 					`
 			} */}
 			<img src="/info.png" alt="" style={{display: "inline"}} />
-			<img src="/ex.png" alt="" style={{display: "inline", verticalAlign: "top"}}/>
+			<img src="/ex.png" alt="" style={{display: "inline", marginLeft:"20px", verticalAlign: "top"}}/>
 		</Box>
 	}
 }
