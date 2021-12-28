@@ -187,14 +187,14 @@ class ProjectManagement extends React.Component<IProjectManagementProps, IProjec
           m: "100px auto",
           p: 5
         }}>
-          {!this.state.imgLoaded && <CircularProgress />}
+          {/* {!this.state.imgLoaded && <CircularProgress />}
           <img
             style={this.state.imgLoaded ? {} : { display: 'none' }}
             onLoad={() => this.setState({ imgLoaded: true })}
             src="empty.png"
             alt="Không tìm thấy dự án nào!"
-          />
-          {this.state.imgLoaded && <Typography
+          /> */}
+          { <Typography
             variant="h6"
             component="div"
             sx={{
@@ -207,7 +207,7 @@ class ProjectManagement extends React.Component<IProjectManagementProps, IProjec
             Hiện tại bạn hệ thống chưa có dự án nào, <br></br>
             Vui lòng quay lại sau
           </Typography>}
-          {this.state.imgLoaded && <Button
+          {<Button
             sx={{ mt: 4 }}
             variant="contained"
             className={`btn-create-new-prj`}
