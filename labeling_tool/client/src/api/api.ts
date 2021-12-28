@@ -3,7 +3,7 @@ import queryString from "querystring";
 import history from "../history";
 
 const API = axios.create({
-    baseURL: "http://localhost:8000/api",
+    baseURL: "http://52.221.198.189:8000/api",
     headers: {
         'content-type': 'application/json',
     },
@@ -34,7 +34,7 @@ API.interceptors.response.use(
         return res;
     },
     err => {
-        if(err.response.status === 401) {
+        if(err && err.response && err.response.status && err.response.status === 401) {
             localStorage.setItem("loggedIn", "0");
             history.push("/");
         }
