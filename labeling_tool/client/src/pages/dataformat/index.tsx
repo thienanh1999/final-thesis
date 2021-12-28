@@ -3,7 +3,7 @@ import React from "react";
 
 export default class DataFormatInfoPage extends React.Component {
 	render() {
-		return <Box>
+		return <Box sx={{mr: 5}}>
 			{/* Dữ liệu đầu vào là một tập tin JSON chứa thông tin của nhiều văn bản được lưu trữ dưới dạng một JSON Array.
 			Mỗi văn bản là một JSON Object bao gồm 3 trường thông tin chính:
 			•	_id: id của văn bảng trong project, đảm bảo là duy nhất
