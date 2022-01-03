@@ -340,7 +340,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_members = ProjectMember.objects.filter(user=user)
         projects = []
         for project_member in project_members:
-            projects.append(project_member.project.to_dict())
+            if not project_member.project.is_deleted:
+                projects.append(project_member.project.to_dict())
         return Response({
             'count': len(projects),
             'projects': projects
